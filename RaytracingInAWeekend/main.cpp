@@ -6,13 +6,16 @@
 #include "material.h"
 #include "bvh.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 int bouncing_spheres()
 {
     hittable_list world;
 
-    auto ground_material = make_shared<lambertian>(color(0.5, 0.5, 0.5));
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, ground_material));
+    auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1), color(.9, .9, .9));
+    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(checker)));
+
 
     for (int a = -5; a < 5; a++) {
         for (int b = -5; b < 5; b++) {
@@ -60,9 +63,9 @@ int bouncing_spheres()
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 5;
-    cam.max_depth = 5;
+    cam.image_width = 1080;
+    cam.samples_per_pixel = 10;
+    cam.max_depth = 10;
 
     cam.vfov = 20;
     cam.lookfrom = point3(13, 2, 3);
@@ -77,7 +80,69 @@ int bouncing_spheres()
 	return 0;
 }
 
+void checkered_spheres() {
+    hittable_list world;
+
+    auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1), color(.9, .9, .9));
+
+    world.add(make_shared<sphere>(point3(0, -10, 0), 10, make_shared<lambertian>(checker)));
+    world.add(make_shared<sphere>(point3(0, 10, 0), 10, make_shared<lambertian>(checker)));
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 50;
+
+    cam.vfov = 20;
+    cam.lookfrom = point3(13, 2, 3);
+    cam.lookat = point3(0, 0, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+
+    cam.render(world);
+}
+
+void earth() {
+
+    hittable_list world;
+
+
+    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
+    auto earth_surface = make_shared<lambertian>(earth_texture);
+    world.add(make_shared<sphere>(point3(2, 0, 0), 2, earth_surface));
+
+    auto blender_texture = make_shared<image_texture>("default_texture.jpg");
+	auto blender_surface = make_shared<lambertian>(blender_texture);
+	world.add(make_shared<sphere>(point3(-2, 0, 0), 2, blender_surface));
+
+
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 50;
+
+    cam.vfov = 20;
+    cam.lookfrom = point3(0, 0, 12);
+    cam.lookat = point3(0, 0, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+
+    cam.render(world);
+}
+
 int main()
 {
-    bouncing_spheres();
+    switch (3) 
+    {
+        case 1: bouncing_spheres();  break;
+        case 2: checkered_spheres(); break;
+		case 3: earth(); break;
+    }
 }

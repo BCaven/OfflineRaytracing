@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/RaytracingInAWeekend/RaytracingInAWeekend.vcxproj
+/RaytracingInAWeekend/earthmap.jpg
+/RaytracingInAWeekend/output.ppm

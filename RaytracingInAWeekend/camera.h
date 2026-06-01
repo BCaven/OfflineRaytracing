@@ -2,7 +2,10 @@
 #include "hittable.h"
 #include "material.h"
 #include <thread>
+#include <future>
+#include <chrono>
 
+using namespace std::chrono_literals;
 
 class camera {
 public:
@@ -20,31 +23,31 @@ public:
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    int num_threads = 3;
+    int num_threads = 16;
 
-    void render_chunk(const hittable& world, interval chunk_width, interval chunk_height, int max_height, std::vector<color>& outputBuffer)
+    int render_chunk(const hittable& world, interval chunk_width, interval chunk_height, std::vector<color>& outputBuffer)
     {
-        std::string name = "cthread_" + int(chunk_width.min);
+        std::string name = "cthread_" + std::to_string(int(chunk_width.min));
         auto logger = spdlog::get(name);
         if (!logger)
         {
             logger = spdlog::stdout_color_mt(name);
         }
         int width = int(chunk_width.size());
+		logger->info("Thread {} running on chunk width ({}, {}) and height ({}, {})", name, chunk_width.min, chunk_width.max, chunk_height.min, chunk_height.max);
         // this is the original render code except height, width, and both starts are determined by the chunk_width/height
         for (int j = int(chunk_height.min); j < int(chunk_height.max); j++) for (int i = int(chunk_width.min); i < int(chunk_width.max); i++)
         {
             if ((j * chunk_width.size()) + i % 100 == 0)
             {
-                logger->info("chunk progress: {} / {}", (j * chunk_width.size()) + i, chunk_width.size());
+                logger->info("chunk progress: {} / {}", ((j - chunk_height.min) * chunk_width.size()) + (i - chunk_width.min), chunk_width.size());
             }
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
                 ray r = get_ray(i, j);
                 pixel_color += ray_color(r, max_depth, world);
             }
-            // TODO: this is wrong!
-            int out_index = int(i + (j * width) + (chunk_width.min * max_height) + (chunk_height.min));
+            int out_index = int(i + (j * image_width));
             if (out_index >= outputBuffer.size())
             {
                 logger->warn("Trying to write outside the image! {}", out_index);
@@ -54,13 +57,11 @@ public:
                 outputBuffer[out_index] = pixel_samples_scale * pixel_color;
             }
         }
+        return int(chunk_width.min);
     }
 
     template <typename HITTABLE>
     void render(const HITTABLE& world) {
-        // Make the renderer use multiple threads so I don't have to wait as long :)
-        
-
         initialize();
 
         chunkBuffer.resize(image_width * image_height);
@@ -74,14 +75,13 @@ public:
             logger->info("Building a thread to go from ({}, {})", chunk_min, chunk_max);
             
             threads.push_back(
-                std::make_shared<std::thread>(
-                    std::bind(&camera::render_chunk, this,
-                        std::ref(world),
-                        interval(chunk_min, chunk_max),
-                        interval(0, image_height),
-                        image_height,
-                        std::ref(chunkBuffer))
-                )
+                std::async(
+                    std::launch::async,
+                    [this, &world, chunk_min, chunk_max]()
+                    {
+                        return this->render_chunk(world, interval(chunk_min, chunk_max), interval(0, this->image_height), this->chunkBuffer);
+                    }
+                ).share()
             );
         }
         
@@ -94,9 +94,19 @@ public:
         }
         outputImage << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-        for (auto t : threads)
+        while (!threads.empty())
         {
-            t->join();
+            auto t = threads.back();
+            threads.pop_back();
+            if (t.wait_for(0s) == std::future_status::ready)
+            {
+                auto n = t.get();
+                logger->info("Joined thread: {}", n);
+            }
+            else
+            {
+                threads.insert(threads.begin(), t);
+            }
         }
         
         logger->info("Thread joined, writing file");
@@ -126,7 +136,7 @@ private:
     shared_ptr<spdlog::logger> logger;
 
     std::vector<color> chunkBuffer;
-    std::vector<std::shared_ptr<std::thread>> threads;
+    std::vector<std::shared_future<int>> threads;
 
     void initialize() {
         // TODO: switch this to factory that reuses other camera loggers

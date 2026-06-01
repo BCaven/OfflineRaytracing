@@ -14,6 +14,8 @@ public:
     double t;
     shared_ptr<material> mat;
 
+    double u;
+    double v;
 
     bool front_face;
 

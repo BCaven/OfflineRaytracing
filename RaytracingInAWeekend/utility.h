@@ -39,3 +39,18 @@ inline int random_int(int min, int max) {
     // Returns a random integer in [min,max].
     return int(random_double(min, max + 1));
 }
+
+inline int clamp(int x, int low, int high) {
+    // Return the value clamped to the range [low, high).
+    if (x < low) return low;
+    if (x < high) return x;
+    return high - 1;
+}
+
+inline unsigned char float_to_byte(float value) {
+    if (value <= 0.0)
+        return 0;
+    if (1.0 <= value)
+        return 255;
+    return static_cast<unsigned char>(256.0 * value);
+}
