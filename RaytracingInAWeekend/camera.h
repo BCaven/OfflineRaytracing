@@ -9,7 +9,6 @@ using namespace std::chrono_literals;
 
 class camera {
 public:
-    /* Public Camera Parameters Here */
     double aspect_ratio = 1.0;  // Ratio of image width over height
     int    image_width = 100;  // Rendered image width in pixel count
     int    samples_per_pixel = 10;   // Count of random samples for each pixel

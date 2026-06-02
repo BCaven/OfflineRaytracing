@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="RaytracingInAWeekend/RaytracingInAWeekend.vcxproj" Id="e184e9e8-8e06-4cf9-a896-98302e337691" />
-</Solution>

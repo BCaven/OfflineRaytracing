@@ -6,6 +6,7 @@
 #include "material.h"
 #include "bvh.h"
 #include "quad.h"
+#include "triangle.h"
 
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -167,6 +168,10 @@ void quads() {
     hittable_list world;
 
     // Materials
+    auto blender_texture = make_shared<image_texture>("default_texture.jpg");
+    auto blender_surface = make_shared<lambertian>(blender_texture);
+
+
     auto left_red = make_shared<lambertian>(color(1.0, 0.2, 0.2));
     auto back_green = make_shared<lambertian>(color(0.2, 1.0, 0.2));
     auto right_blue = make_shared<lambertian>(color(0.2, 0.2, 1.0));
@@ -174,7 +179,7 @@ void quads() {
     auto lower_teal = make_shared<lambertian>(color(0.2, 0.8, 0.8));
 
     // Quads
-    world.add(make_shared<quad>(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0), left_red));
+    world.add(make_shared<triangle>(point3(-3, -2, 5), vec3(0, 0, -2), vec3(0, 4, 0), blender_surface));
     world.add(make_shared<quad>(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0), back_green));
     world.add(make_shared<quad>(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0), right_blue));
     world.add(make_shared<quad>(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4), upper_orange));
