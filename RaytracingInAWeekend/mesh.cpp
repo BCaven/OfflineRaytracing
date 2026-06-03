@@ -24,7 +24,7 @@ std::shared_ptr<mesh> mesh::fromFile(std::string filename, shared_ptr<material> 
 		if (vertCount == -1)
 		{
 			vertCount = std::stoi(line);
-			floatData.reserve(vertCount * 8); // grab room for UVs too even if we do not write them
+			floatData.reserve(vertCount * 8);
 		}
 		else
 		{
@@ -34,14 +34,13 @@ std::shared_ptr<mesh> mesh::fromFile(std::string filename, shared_ptr<material> 
 
 	if (floatData.size() == vertCount * 2 * 3)
 	{
-		// fill the rest with dummy UV coordinates (0, 0), (0, 1), (1, 0) over and over
 		if (vertCount % 3 != 0)
 		{
 			logger->warn("Our vertex count is not a multiple of 3 which suggests we do not have triangles");
 		}
-		// filling in three verticies at a time
 		for (int i = 0; i < vertCount; i += 3)
 		{
+			// default coords
 			floatData.insert(floatData.end(), { 0, 0, 0, 1, 1, 0 });
 		}
 	}
@@ -63,7 +62,7 @@ mesh::mesh(int vertCount, std::vector<float> vertData, shared_ptr<material> mat)
 		logger = spdlog::stdout_color_mt("shape");
 	}
 
-	bvh = hittable_list();
+	auto tmp_hit = hittable_list();
 
 
 	// vert data is stored as points, normals, uvs
@@ -100,7 +99,7 @@ mesh::mesh(int vertCount, std::vector<float> vertData, shared_ptr<material> mat)
 	{
 		auto tri = make_shared<triangle>(vertices[i], vertices[i + 1], vertices[i + 2], mat);
 		bbox = aabb(bbox, tri->bounding_box());
-		bvh.add(tri);
+		tmp_hit.add(tri);
 		triangles.push_back(tri);
 	}
 
@@ -112,5 +111,5 @@ mesh::mesh(int vertCount, std::vector<float> vertData, shared_ptr<material> mat)
 
 	// build the bvh
 	
-	//bvh = hittable_list(make_shared<bvh_node>(triangles, 0, triangles.size()));
+	bvh = hittable_list(make_shared<bvh_node>(tmp_hit));
 }

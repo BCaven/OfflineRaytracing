@@ -218,9 +218,18 @@ void meshes()
     hittable_list world;
     auto left_red = make_shared<lambertian>(color(1.0, 0.2, 0.2));
 
-	auto m = mesh::fromFile("cube.bcf", left_red);
-    world.add(m);
+    world.add(make_shared<triangle>(
+        vertex(point3(0, 0, -1), vec3(0, 0, -1), vec3(0, 0, 0)),
+        vertex(point3(0, 5, -1), vec3(0, 0, -1), vec3(0, 1, 0)),
+        vertex(point3(5, 0, -1), vec3(0, 0, -1), vec3(1, 0, 0)),
+        left_red
+    ));
 
+	auto m = mesh::fromFile("test_shape2.buvf", left_red);
+    world.add(m);
+    auto pertext = make_shared<noise_texture>(4);
+    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
+    
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
