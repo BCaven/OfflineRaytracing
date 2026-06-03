@@ -110,7 +110,7 @@ public:
         
         logger->info("Thread joined, writing file");
         logger->info("Chunk buffer has {} pixels", chunkBuffer.size());
-        for (auto pixel : chunkBuffer)
+        for (const color& pixel : chunkBuffer)
         {
             // already color corrected
             write_color(outputImage, pixel);
@@ -179,21 +179,26 @@ private:
     color ray_color(const ray& r, int depth, const hittable& world) const {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
+        {
+            //logger->info("Max ray depth reached, returning black");
             return color(0, 0, 0);
-        
+        }
+
         hit_record rec;
 
         if (world.hit(r, interval(0.0001, infinity), rec)) {
             ray scattered;
             color attenuation;
             if (rec.mat->scatter(r, rec, attenuation, scattered))
+                attenuation = color(rec.u, rec.v, 0);
                 return attenuation * ray_color(scattered, depth - 1, world);
             return color(0, 0, 0);
         }
 
         vec3 unit_direction = unit_vector(r.direction());
         auto a = 0.5 * (unit_direction.y() + 1.0);
-        return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
+
+		return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
     }
 
     ray get_ray(int i, int j) const {

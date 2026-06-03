@@ -7,6 +7,7 @@
 #include "bvh.h"
 #include "quad.h"
 #include "triangle.h"
+#include "mesh.h"
 
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -178,8 +179,18 @@ void quads() {
     auto upper_orange = make_shared<lambertian>(color(1.0, 0.5, 0.0));
     auto lower_teal = make_shared<lambertian>(color(0.2, 0.8, 0.8));
 
-    // Quads
-    world.add(make_shared<triangle>(point3(-3, -2, 5), vec3(0, 0, -2), vec3(0, 4, 0), blender_surface));
+    
+    world.add(make_shared<triangle>(
+        vertex(
+            point3(0, 0, 0), 
+            vec3(0, 0, -1), 
+            vec3(0, 0, 0)
+        ),
+        vertex(point3(0, 5, 0), vec3(0, 0, -1), vec3(0, 1, 0)),
+        vertex(point3(5, 0, 0), vec3(0, 0, -1), vec3(1, 0, 0)),
+        left_red
+    ));
+    
     world.add(make_shared<quad>(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0), back_green));
     world.add(make_shared<quad>(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0), right_blue));
     world.add(make_shared<quad>(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4), upper_orange));
@@ -202,14 +213,42 @@ void quads() {
     cam.render(world);
 }
 
+void meshes()
+{
+    hittable_list world;
+    auto left_red = make_shared<lambertian>(color(1.0, 0.2, 0.2));
+
+	auto m = mesh::fromFile("cube.bcf", left_red);
+    world.add(m);
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 540;
+    cam.samples_per_pixel = 10;
+    cam.max_depth = 10;
+
+    cam.vfov = 20;
+    cam.lookfrom = point3(13, 2, 3);
+    cam.lookat = point3(0, 0, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0.6;
+    cam.focus_dist = 10.0;
+
+    cam.render(world);
+
+}
+
 int main()
 {
-    switch (5) 
+    switch (6) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;
 		case 3: earth(); break;
 		case 4: perlin_spheres(); break;
 		case 5: quads(); break;
+		case 6: meshes(); break;
     }
 }

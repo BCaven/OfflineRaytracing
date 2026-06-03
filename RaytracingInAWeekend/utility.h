@@ -18,7 +18,7 @@ using std::shared_ptr;
 
 const double infinity = std::numeric_limits<double>::infinity();
 const double pi = 3.1415926535897932385;
-const double minimus = 0.0001;
+const double minimus = 0.00000001;
 
 // Utility Functions
 
@@ -55,3 +55,35 @@ inline unsigned char float_to_byte(float value) {
         return 255;
     return static_cast<unsigned char>(256.0 * value);
 }
+
+namespace utility
+{
+	inline bool loadFile(std::string fileName, std::string& outContent)
+	{
+		std::ifstream fileStream(fileName, std::ios::in);
+		if (!fileStream.is_open())
+		{
+			spdlog::error("Failed to open file: {}", fileName);
+			return false;
+		}
+		std::string line = "";
+		outContent = "";
+		while (std::getline(fileStream, line))
+		{
+			outContent += line + "\n";
+		}
+		fileStream.close();
+		return true;
+	}
+
+	inline std::vector<std::string> split(const std::string& str, char delimiter) {
+		std::vector<std::string> tokens(0);
+		std::stringstream ss(str);
+		std::string token;
+		while (std::getline(ss, token, delimiter)) {
+			tokens.push_back(token);
+		}
+		return tokens;
+	}
+}
+

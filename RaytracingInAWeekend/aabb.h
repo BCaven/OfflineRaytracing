@@ -24,7 +24,13 @@ public:
         z = (a[2] <= b[2]) ? interval(a[2], b[2]) : interval(b[2], a[2]);
 
         pad_to_minimums();
+    }
 
+	aabb(const aabb& box, const point3& p) {
+        // Create a box that is the union of the input box and the input point.
+        x = interval(box.x, interval(p[0], p[0]));
+        y = interval(box.y, interval(p[1], p[1]));
+        z = interval(box.z, interval(p[2], p[2]));
     }
 
     aabb(const aabb& box0, const aabb& box1) {

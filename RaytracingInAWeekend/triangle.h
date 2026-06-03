@@ -2,84 +2,97 @@
 
 #include "hittable.h"
 
-// TODO: add vec2 and proper UV coordinates instead of fixed 0-1
+
 
 class triangle : public hittable {
 public:
-    triangle(const point3& Q1, const vec3& Q2, const vec3& Q3, shared_ptr<material> mat)
-        : Q(Q1), u(Q2), v(Q3), mat(mat)
+
+    triangle(const vertex& V1, const vertex& V2, const vertex& V3, shared_ptr<material> mat)
+		: v0(V1), v1(V2), v2(V3), mat(mat)
+    
     {
+		logger = spdlog::get("triangle");
+		if (!logger) logger = spdlog::stdout_color_mt("triangle");
 
-        auto n = cross(u, v);
-        normal = unit_vector(n);
-        D = dot(normal, Q);
-        w = n / dot(n, n);
-
+        v0v1 = v1.position - v0.position;
+		v0v2 = v2.position - v0.position;
+		v1v2 = v2.position - v1.position;
+		v2v0 = v0.position - v2.position;
+		normal = cross(v0v1, v0v2);
+        denom = normal.length_squared();
+		normalized_normal = unit_vector(normal);
+		area = normal.length() / 2;
+		d = -1 * dot(normal, v0.position);
         set_bounding_box();
     }
 
     virtual void set_bounding_box() {
-        // Compute the bounding box of all four vertices.
-        auto bbox_diagonal1 = aabb(Q, Q + u + v);
-        auto bbox_diagonal2 = aabb(Q + u, Q + v);
-        bbox = aabb(bbox_diagonal1, bbox_diagonal2);
+        // Compute the bounding box
+        auto bbox1 = aabb(v0.position, v1.position);
+        auto bbox2 = aabb(v0.position, v2.position);
+        bbox = aabb(bbox1, bbox2);
     }
 
     aabb bounding_box() const override { return bbox; }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        auto denom = dot(normal, r.direction());
+    bool hit(const ray& r, interval ray_t, hit_record& rec) const override 
+    {
+		// following the scratchapixel barycentric coordinates method for ray-triangle intersection
 
-        // No hit if the ray is parallel to the plane.
-        if (std::fabs(denom) < 1e-8)
-            return false;
+		double NdotRayDir = dot(normal, r.direction());
 
-        // Return false if the hit point parameter t is outside the ray interval.
-        auto t = (D - dot(normal, r.origin())) / denom;
-        if (!ray_t.contains(t))
-            return false;
+        if (fabs(NdotRayDir) < minimus) return false;
 
-        auto intersection = r.at(t);
-        vec3 planar_hitpt_vector = intersection - Q;
-        auto alpha = dot(w, cross(planar_hitpt_vector, v));
-        auto beta = dot(w, cross(u, planar_hitpt_vector));
+		double t = -(dot(normal, r.origin()) + d) / NdotRayDir;
 
-        if (!is_interior(alpha, beta, rec))
-            return false;
+        if (!ray_t.contains(t)) return false;
 
-        rec.t = t;
-        rec.p = intersection;
+        vec3 P = r.at(t);
+
+        vec3 C;
+		vec3 v1p = P - v1.position;
+        C = cross(v1v2, v1p);
+        double u, v, w;
+        if ((u = dot(normal, C)) < 0) return false;
+
+		vec3 v2p = P - v2.position;
+		C = cross(v2v0, v2p);
+        if ((v = dot(normal, C)) < 0) return false;
+
+		vec3 v0p = P - v0.position;
+		C = cross(v0v1, v0p);
+		if (dot(normal, C) < 0) return false;
+
+        u /= denom;
+		v /= denom;
+		w = 1 - u - v;
+
+		rec.u = u;
+		rec.v = v;
+
+        // need to also set rec.u and rec.v
+        rec.t = -(dot(normalized_normal, r.origin()) + d) / NdotRayDir;
+        rec.p = P;
         rec.mat = mat;
-        rec.set_face_normal(r, normal);
 
-        return true;
-    }
+        
+        rec.set_face_normal(r, normalized_normal);
 
-    virtual bool is_interior(double a, double b, hit_record& rec) const {
-        interval unit_interval = interval(0, 1);
-        // Given the hit point in plane coordinates, return false if it is outside the
-        // primitive, otherwise set the hit record UV coordinates and return true.
-
-        // a > 0 && b > 0 && a + b < 1
-
-        bool tri_check = a > 0 && b > 0 && a + b < 1;
-
-        if (!tri_check)
-            return false;
-
-
-        rec.u = a;
-        rec.v = b;
         return true;
     }
 
 private:
-    point3 Q;
-    vec3 u, v;
-    vec3 w;
-
+	std::shared_ptr<spdlog::logger> logger;
+    vertex v0, v1, v2;
+    vec3 normal;
+    vec3 normalized_normal;
+    double denom = 0;
+    double area;
+	double d = 0; // plane equation parameter
+	vec3 v0v1;
+    vec3 v0v2;
+	vec3 v2v0;
+    vec3 v1v2;
     shared_ptr<material> mat;
     aabb bbox;
-    vec3 normal;
-    double D;
 };

@@ -61,6 +61,19 @@ public:
 // point3 is just an alias for vec3, but useful for geometric clarity in the code.
 using point3 = vec3;
 
+struct vertex {
+    point3 position;
+    vec3 normal;
+
+    // ony use x and y
+    using vec2 = vec3;
+    vec2 uv;
+
+	vertex() : position(), normal(), uv() {}
+    vertex(point3 pos, vec3 normal, vec2 uv) : position(pos), normal(normal), uv(uv) {}
+
+};
+
 
 // Vector Utility Functions
 std::ostream& operator<<(std::ostream& out, const vec3& v);
