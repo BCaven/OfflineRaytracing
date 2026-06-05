@@ -39,6 +39,9 @@ public:
         z = interval(box0.z, box1.z);
     }
 
+
+
+
     const interval& axis_interval(int n) const {
         if (n == 1) return y;
         if (n == 2) return z;
@@ -92,3 +95,6 @@ private:
         if (z.size() < delta) z = z.expand(delta);
     }
 };
+
+aabb operator+(const aabb& bbox, const vec3& offset);
+aabb operator+(const vec3& offset, const aabb& bbox);

@@ -70,9 +70,8 @@ public:
 		rec.u = u;
 		rec.v = v;
 
-        auto norm_t = -(dot(normalized_normal, r.origin()) + d) / dot(normalized_normal, r.direction());
         // need to also set rec.u and rec.v
-        rec.t = norm_t;
+        rec.t = t;
         rec.p = P;
         rec.mat = mat;
 

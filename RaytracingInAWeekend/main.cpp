@@ -8,6 +8,7 @@
 #include "quad.h"
 #include "triangle.h"
 #include "mesh.h"
+#include "constant_medium.h"
 
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -78,6 +79,7 @@ int bouncing_spheres()
 
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 
@@ -105,6 +107,7 @@ void checkered_spheres() {
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 }
@@ -137,6 +140,7 @@ void earth() {
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 }
@@ -161,6 +165,7 @@ void perlin_spheres() {
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 }
@@ -209,6 +214,7 @@ void quads() {
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 }
@@ -218,17 +224,10 @@ void meshes()
     hittable_list world;
     auto left_red = make_shared<lambertian>(color(1.0, 0.2, 0.2));
 
-    world.add(make_shared<triangle>(
-        vertex(point3(0, 0, -1), vec3(0, 0, -1), vec3(0, 0, 0)),
-        vertex(point3(0, 5, -1), vec3(0, 0, -1), vec3(0, 1, 0)),
-        vertex(point3(5, 0, -1), vec3(0, 0, -1), vec3(1, 0, 0)),
-        left_red
-    ));
-
-	auto m = mesh::fromFile("test_shape2.buvf", left_red);
+	auto m = mesh::fromFile("snowball.buvf", left_red);
     world.add(m);
     auto pertext = make_shared<noise_texture>(4);
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
+    world.add(make_shared<sphere>(point3(0, -1010, 0), 1000, make_shared<lambertian>(pertext)));
     
     camera cam;
 
@@ -244,14 +243,124 @@ void meshes()
 
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
+    cam.background = color(0.70, 0.80, 1.00);
 
     cam.render(world);
 
 }
 
+void simple_light() {
+    hittable_list world;
+
+    auto pertext = make_shared<noise_texture>(4);
+    world.add(make_shared<sphere>(point3(0, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+
+    auto m = mesh::fromFile("snowball.buvf", make_shared<lambertian>(color(0.5, 0.5, 0.5)));
+    for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++)
+    {
+        world.add(make_shared<translate>(m, vec3(-30 + (8 * j), 0, -10 + (8 * i))));
+    }
+
+    auto glass = make_shared<dielectric>(1.5);
+    world.add(make_shared<sphere>(
+        point3(0, 2, 0),
+        3,
+        glass
+    ));
+    auto ball = make_shared<sphere>(
+        point3(0, 2, 0),
+        2.5,
+        glass
+    );
+    world.add(make_shared<constant_medium>(ball, 0.02, color(1, 1, 1)));
+
+    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
+    //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
+    world.add(make_shared<sphere>(point3(0, .25, 0), 0.5, difflight));
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 200;
+    cam.max_depth = 50;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 20;
+    cam.lookfrom = point3(26, 8, 6);
+    cam.lookat = point3(0, 1, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+	cam.chunk_size = 32;
+
+	auto bvh_world = bvh_node(world);
+    cam.render(bvh_world);
+}
+
+void the_council() {
+    hittable_list world;
+
+    world.add(make_shared<sphere>(point3(0, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+
+    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
+    //auto snowballlight = make_shared<diffuse_light>(color(1, 0, 0));
+	auto snowballlight = make_shared< lambertian>(color(0.5, 0.5, 0.5));
+    auto m = mesh::fromFile("snowball.buvf", snowballlight);
+    for (int i = 0; i < 360; i+=30) for (double j = 8.0; j < 30.0; j+=7.0)
+    {
+		auto rad = degrees_to_radians(i);
+        auto rotated = make_shared<rotate_y>(m, 100 + i);
+
+        auto translated = make_shared<translate>(rotated, vec3(
+            std::sin(rad) * j,
+            j - 8, 
+            std::cos(rad) * j
+        ));
+        world.add(translated);
+    }
+
+    auto glass = make_shared<dielectric>(1.5);
+    world.add(make_shared<sphere>(
+        point3(0, 2, 0),
+        3,
+        glass
+    ));
+    auto ball = make_shared<sphere>(
+        point3(0, 2, 0),
+        2.5,
+        glass
+    );
+    world.add(make_shared<constant_medium>(ball, 0.02, color(1, 1, 1)));
+
+    //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
+    world.add(make_shared<sphere>(point3(0, .25, 0), 0.5, difflight));
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 1080;
+    cam.samples_per_pixel = 1000;
+    cam.max_depth = 50;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 30;
+    cam.lookfrom = point3(40, 40, 6);
+    cam.lookat = point3(0, 1, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+    cam.chunk_size = 32;
+    cam.num_threads = 20;
+
+    auto bvh_world = bvh_node(world);
+    cam.render(bvh_world);
+}
+
+
 int main()
 {
-    switch (6) 
+    switch (8) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;
@@ -259,5 +368,7 @@ int main()
 		case 4: perlin_spheres(); break;
 		case 5: quads(); break;
 		case 6: meshes(); break;
+        case 7: simple_light(); break;
+		case 8: the_council(); break;
     }
 }

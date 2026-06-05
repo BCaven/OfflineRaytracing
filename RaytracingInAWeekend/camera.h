@@ -5,7 +5,14 @@
 #include <future>
 #include <chrono>
 
+#include <boost/lockfree/queue.hpp>
+
 using namespace std::chrono_literals;
+
+struct chunk {
+    interval width;
+	interval height;
+};
 
 class camera {
 public:
@@ -22,25 +29,35 @@ public:
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    int num_threads = 16;
+    color  background;               // Scene background color
 
-    int render_chunk(const hittable& world, interval chunk_width, interval chunk_height, std::vector<color>& outputBuffer)
+    int num_threads = 16;
+	int chunk_size = 16;
+
+    int render_thread(const hittable& world, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
     {
-        std::string name = "cthread_" + std::to_string(int(chunk_width.min));
+        std::string name = "cthread_" + std::to_string(id);
         auto logger = spdlog::get(name);
         if (!logger)
         {
             logger = spdlog::stdout_color_mt(name);
         }
+        chunk section;
+        while (chunkQueue.pop(section))
+        {
+            render_chunk(world, section.width, section.height, outputBuffer);
+        }
+        logger->info("Chunk queue is empty, exiting thread {}", id);
+        return id;
+    }
+
+    int render_chunk(const hittable& world, interval chunk_width, interval chunk_height, std::vector<color>& outputBuffer)
+    {
+        
         int width = int(chunk_width.size());
-		logger->info("Thread {} running on chunk width ({}, {}) and height ({}, {})", name, chunk_width.min, chunk_width.max, chunk_height.min, chunk_height.max);
         // this is the original render code except height, width, and both starts are determined by the chunk_width/height
         for (int j = int(chunk_height.min); j < int(chunk_height.max); j++) for (int i = int(chunk_width.min); i < int(chunk_width.max); i++)
         {
-            if ((j * chunk_width.size()) + i % 100 == 0)
-            {
-                logger->info("chunk progress: {} / {}", ((j - chunk_height.min) * chunk_width.size()) + (i - chunk_width.min), chunk_width.size());
-            }
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
                 ray r = get_ray(i, j);
@@ -50,12 +67,14 @@ public:
             if (out_index >= outputBuffer.size())
             {
                 logger->warn("Trying to write outside the image! {}", out_index);
+				logger->warn("Chunk width: {} - {}, chunk height: {} - {}, image width: {}, image height: {}", chunk_width.min, chunk_width.max, chunk_height.min, chunk_height.max, image_width, image_height);
             }
             else
             {
                 outputBuffer[out_index] = pixel_samples_scale * pixel_color;
             }
         }
+		logger->info("Finished rendering chunk width: {} - {}, height: {} - {}", chunk_width.min, chunk_width.max, chunk_height.min, chunk_height.max);
         return int(chunk_width.min);
     }
 
@@ -65,20 +84,53 @@ public:
 
         chunkBuffer.resize(image_width * image_height);
         logger->info("Chunk buffer has {} elements", chunkBuffer.size());
-        int chunk_size = image_width / num_threads;
-        int extra = 0;
+        int extra_width = 0;
+		int extra_height = 0;
+
+		unsigned int xchunks = image_width / chunk_size;
+		unsigned int ychunks = image_height / chunk_size;
+
+		logger->info("Image will be rendered in {} x {} chunks", xchunks, ychunks);
+        boost::lockfree::queue<chunk> chunkQueue{ xchunks * ychunks };
+        
+		for (int i = 0; i < image_width; i+=chunk_size) for (int j = 0; j < image_height; j+=chunk_size)
+        {
+            if (i + chunk_size > image_width)
+            {
+                extra_width = image_width - (i + chunk_size);
+				logger->info("Chunk at width {} exceeds image width, adding extra width of {}", i, extra_width);
+            }
+            else
+            {
+				extra_width = 0;
+            }
+            if (j + chunk_size > image_height)
+            {
+                extra_height = image_height - (j + chunk_size);
+                logger->info("Chunk at height {} exceeds image height, adding extra height of {}", j, extra_height);
+            }
+            else
+            {
+				extra_height = 0;
+            }
+			chunkQueue.push(
+                chunk(interval(i, i + chunk_size + extra_width), interval(j, j + chunk_size + extra_height))
+            );
+        }
+
         for (int t = 0; t < num_threads; t++)
         {
-            if (t == num_threads - 1) extra = image_width % num_threads;
-            int chunk_min = t * chunk_size, chunk_max = ((t + 1) * chunk_size) + extra;
-            logger->info("Building a thread to go from ({}, {})", chunk_min, chunk_max);
+            //if (t == num_threads - 1) extra = image_width % num_threads;
+            //int chunk_min = t * chunk_size, chunk_max = ((t + 1) * chunk_size) + extra;
+            logger->info("Building thread: {}", t);
             
             threads.push_back(
                 std::async(
                     std::launch::async,
-                    [this, &world, chunk_min, chunk_max]()
+                    [this, &world, &chunkQueue, t]()
                     {
-                        return this->render_chunk(world, interval(chunk_min, chunk_max), interval(0, this->image_height), this->chunkBuffer);
+						return this->render_thread(world, chunkQueue, this->chunkBuffer, t);
+                        //return this->render_chunk(world, interval(chunk_min, chunk_max), interval(0, this->image_height), this->chunkBuffer);
                     }
                 ).share()
             );
@@ -108,7 +160,7 @@ public:
             }
         }
         
-        logger->info("Thread joined, writing file");
+        logger->info("Threads joined, writing file");
         logger->info("Chunk buffer has {} pixels", chunkBuffer.size());
         for (const color& pixel : chunkBuffer)
         {
@@ -186,19 +238,20 @@ private:
 
         hit_record rec;
 
-        if (world.hit(r, interval(0.0001, infinity), rec)) {
-            ray scattered;
-            color attenuation;
-            if (rec.mat->scatter(r, rec, attenuation, scattered))
-                attenuation = color(rec.u, rec.v, 0);
-                return attenuation * ray_color(scattered, depth - 1, world);
-            return color(0, 0, 0);
-        }
+        // If the ray hits nothing, return the background color.
+        if (!world.hit(r, interval(0.001, infinity), rec))
+            return background;
 
-        vec3 unit_direction = unit_vector(r.direction());
-        auto a = 0.5 * (unit_direction.y() + 1.0);
+        ray scattered;
+        color attenuation;
+        color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
 
-		return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
+        if (!rec.mat->scatter(r, rec, attenuation, scattered))
+            return color_from_emission;
+
+        color color_from_scatter = attenuation * ray_color(scattered, depth - 1, world);
+
+        return color_from_emission + color_from_scatter;
     }
 
     ray get_ray(int i, int j) const {
