@@ -98,3 +98,4 @@ private:
 
 aabb operator+(const aabb& bbox, const vec3& offset);
 aabb operator+(const vec3& offset, const aabb& bbox);
+aabb operator*(const aabb& bbox, const vec3& scale);

@@ -10,3 +10,12 @@ aabb operator+(const aabb& bbox, const vec3& offset) {
 aabb operator+(const vec3& offset, const aabb& bbox) {
     return bbox + offset;
 }
+
+aabb operator*(const aabb& bbox, const vec3& scale)
+{
+    return aabb(
+        interval(bbox.x.min * scale.x(), bbox.x.max * scale.x()),
+        interval(bbox.y.min * scale.y(), bbox.y.max * scale.y()),
+        interval(bbox.z.min * scale.z(), bbox.z.max * scale.z())
+	);
+}

@@ -256,33 +256,22 @@ void simple_light() {
     world.add(make_shared<sphere>(point3(0, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
 
     auto m = mesh::fromFile("snowball.buvf", make_shared<lambertian>(color(0.5, 0.5, 0.5)));
+    auto scaled = make_shared<scale>(m, vec3(2, 2, 2));
     for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++)
     {
-        world.add(make_shared<translate>(m, vec3(-30 + (8 * j), 0, -10 + (8 * i))));
+        world.add(make_shared<translate>(scaled, vec3(-30 + (8 * j), 0, -10 + (8 * i))));
     }
 
-    auto glass = make_shared<dielectric>(1.5);
-    world.add(make_shared<sphere>(
-        point3(0, 2, 0),
-        3,
-        glass
-    ));
-    auto ball = make_shared<sphere>(
-        point3(0, 2, 0),
-        2.5,
-        glass
-    );
-    world.add(make_shared<constant_medium>(ball, 0.02, color(1, 1, 1)));
 
     auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-    world.add(make_shared<sphere>(point3(0, .25, 0), 0.5, difflight));
+    world.add(make_shared<sphere>(point3(0, 50, 0), 20, difflight));
 
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 400;
-    cam.samples_per_pixel = 200;
+    cam.samples_per_pixel = 100;
     cam.max_depth = 50;
     cam.background = color(0, 0, 0);
 
@@ -293,6 +282,7 @@ void simple_light() {
 
     cam.defocus_angle = 0;
 	cam.chunk_size = 32;
+    cam.num_threads = 20;
 
 	auto bvh_world = bvh_node(world);
     cam.render(bvh_world);
@@ -307,40 +297,57 @@ void the_council() {
     //auto snowballlight = make_shared<diffuse_light>(color(1, 0, 0));
 	auto snowballlight = make_shared< lambertian>(color(0.5, 0.5, 0.5));
     auto m = mesh::fromFile("snowball.buvf", snowballlight);
-    for (int i = 0; i < 360; i+=30) for (double j = 8.0; j < 30.0; j+=7.0)
+    double min_distance = 15.0;
+    for (int i = 0; i < 360; i+=30) for (double j = min_distance; j < 30.0; j+=7.0)
     {
 		auto rad = degrees_to_radians(i);
         auto rotated = make_shared<rotate_y>(m, 100 + i);
 
         auto translated = make_shared<translate>(rotated, vec3(
             std::sin(rad) * j,
-            j - 8, 
+            j - min_distance, 
             std::cos(rad) * j
         ));
         world.add(translated);
     }
 
     auto glass = make_shared<dielectric>(1.5);
+	auto otherglass = make_shared<dielectric>(1.2);
     world.add(make_shared<sphere>(
         point3(0, 2, 0),
-        3,
+        8,
+        otherglass
+    ));
+    world.add(make_shared<sphere>(
+        point3(0, 2, 0),
+        7,
         glass
     ));
     auto ball = make_shared<sphere>(
         point3(0, 2, 0),
-        2.5,
-        glass
+        7.5,
+		make_shared<lambertian>(color(0.5, 0.0, 0.0))
     );
-    world.add(make_shared<constant_medium>(ball, 0.02, color(1, 1, 1)));
+    world.add(make_shared<constant_medium>(ball, 0.2, color(0.8, 0.7, 0.8)));
+
+    auto atmo = make_shared<sphere>(
+        point3(0, 2, 0),
+        1000,
+        make_shared<lambertian>(color(0.5, 0.0, 0.0))
+    );
+    world.add(make_shared<constant_medium>(atmo, 0.002, color(0.1, 0.1, 0.1)));
+
 
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-    world.add(make_shared<sphere>(point3(0, .25, 0), 0.5, difflight));
-
+	world.add(
+        mesh::fromFile("snowball.buvf", difflight)
+    );
+    
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 1080;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 40;
     cam.max_depth = 50;
     cam.background = color(0, 0, 0);
 
@@ -350,7 +357,7 @@ void the_council() {
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-    cam.chunk_size = 32;
+    cam.chunk_size = 50;
     cam.num_threads = 20;
 
     auto bvh_world = bvh_node(world);
