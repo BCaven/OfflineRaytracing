@@ -1,7 +1,7 @@
 ![the council](thecouncil.png)
 
-# RaytracingInAWeekend
+# Offline Raytracing
 
-Starting with the Raytracing tutorial series by Peter Shirley, Trevor David Black, and Steve Hollasch, this is an offline monty carlo raytracer that has support for triangle meshes and multi-core CPU rendering.
+Starting with the [raytracing tutorial series](https://raytracing.github.io/) by Peter Shirley, Trevor David Black, and Steve Hollasch, this is an offline monty carlo raytracer that has support for triangle meshes and multi-core CPU rendering.
 
 
