@@ -81,7 +81,10 @@ int bouncing_spheres()
     cam.focus_dist = 10.0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(0, 2, 0), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 
 	return 0;
 }
@@ -109,7 +112,10 @@ void checkered_spheres() {
     cam.defocus_angle = 0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 }
 
 void earth() {
@@ -142,7 +148,10 @@ void earth() {
     cam.defocus_angle = 0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 }
 
 void perlin_spheres() {
@@ -167,7 +176,10 @@ void perlin_spheres() {
     cam.defocus_angle = 0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 }
 
 void quads() {
@@ -216,7 +228,10 @@ void quads() {
     cam.defocus_angle = 0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 }
 
 void meshes()
@@ -245,7 +260,10 @@ void meshes()
     cam.focus_dist = 10.0;
     cam.background = color(0.70, 0.80, 1.00);
 
-    cam.render(world);
+    auto empty_material = shared_ptr<material>();
+    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+
+    cam.render(world, lights);
 
 }
 
@@ -254,58 +272,128 @@ void simple_light() {
 
     auto pertext = make_shared<noise_texture>(4);
     world.add(make_shared<sphere>(point3(0, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+    shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
 
-    auto m = mesh::fromFile("snowball.buvf", make_shared<lambertian>(color(0.5, 0.5, 0.5)));
-    auto scaled = make_shared<scale>(m, vec3(2, 2, 2));
+    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
+    //auto snowballlight = make_shared<diffuse_light>(color(1, 0, 0));
+    auto snowball_mat = make_shared< lambertian >(color(0.5, 0.5, 0.5));
+    auto snowball_glass = make_shared< dielectric >(1.5);
+    auto snowball_metal = make_shared< metal >(color(0.5, 0.5, 0.5), 0.1);
+    auto m_mat = mesh::fromFile("snowball.buvf", snowball_mat);
+    auto m_glass = mesh::fromFile("snowball.buvf", snowball_glass);
+    auto m_metal = mesh::fromFile("snowball.buvf", snowball_metal);
+    auto m_light = mesh::fromFile("snowball.buvf", difflight);
+
     for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++)
     {
-        world.add(make_shared<translate>(scaled, vec3(-30 + (8 * j), 0, -10 + (8 * i))));
+        auto m = m_mat;
+        auto choice = random_int(0, 3);
+        switch (choice)
+        {
+        case 0:
+            m = m_mat;
+            break;
+        case 1:
+            m = m_glass;
+            break;
+        case 2:
+            m = m_metal;
+            break;
+        case 3:
+            m = mesh::fromFile("snowball.buvf", make_shared<diffuse_light>(color(random_double(), random_double(), random_double())));
+            break;
+        }
+        world.add(make_shared<translate>(m, vec3(-30 + (8 * j), 0, -10 + (8 * i))));
     }
 
 
-    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
+    
+
+    // Glass Sphere
+    //auto glass = make_shared<dielectric>(1.5);
+    //world.add(make_shared<sphere>(point3(0, 0, 0), 3, glass));
+
+    hittable_list lights;
+
+    
+    difflight = make_shared<diffuse_light>(color(2, 2, 4));
+    auto rlight = make_shared<diffuse_light>(color(4, 2, 0));
+
+    // lights, aka things that recieve more samples than anything else.
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-    world.add(make_shared<sphere>(point3(0, 50, 0), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 20, -25), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 20, 35), 20, rlight));
+    lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
 
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
+    cam.image_width = 600;
+    cam.samples_per_pixel = 1000;
     cam.max_depth = 50;
     cam.background = color(0, 0, 0);
 
     cam.vfov = 20;
-    cam.lookfrom = point3(26, 8, 6);
+    cam.lookfrom = point3(26, 8, 0);
     cam.lookat = point3(0, 1, 0);
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-	cam.chunk_size = 32;
+	cam.chunk_size = 16;
     cam.num_threads = 20;
 
+    // make the lights actual things
+    world.add(make_shared<hittable_list>(lights));
+
 	auto bvh_world = bvh_node(world);
-    cam.render(bvh_world);
+    cam.render(bvh_world, lights);
 }
 
 void the_council() {
+    // TODO: figure out why this scene has NaNs
+
     hittable_list world;
+    hittable_list lights;
 
     world.add(make_shared<sphere>(point3(0, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
 
     auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
     //auto snowballlight = make_shared<diffuse_light>(color(1, 0, 0));
-	auto snowballlight = make_shared< lambertian>(color(0.5, 0.5, 0.5));
-    auto m = mesh::fromFile("snowball.buvf", snowballlight);
+	auto snowball_mat = make_shared< lambertian >(color(0.5, 0.5, 0.5));
+    auto snowball_glass = make_shared< dielectric >(1.5);
+    auto snowball_metal = make_shared< metal >(color(0.5, 0.5, 0.5), 0.1);
+
+    auto m_mat = mesh::fromFile("snowball.buvf", snowball_mat);
+    auto m_glass = mesh::fromFile("snowball.buvf", snowball_glass);
+    auto m_metal = mesh::fromFile("snowball.buvf", snowball_metal);
+    auto m_light = mesh::fromFile("snowball.buvf", difflight);
+
     double min_distance = 15.0;
     for (int i = 0; i < 360; i+=30) for (double j = min_distance; j < 30.0; j+=7.0)
     {
+        auto m = m_mat;
+        auto choice = random_int(0, 3);
+        switch (choice)
+        {
+        case 0:
+            m = m_mat;
+            break;
+        case 1:
+            m = m_glass;
+            break;
+        case 2:
+            m = m_metal;
+            break;
+        case 3:
+            m = mesh::fromFile("snowball.buvf", make_shared<diffuse_light>(color(random_double(), random_double(), random_double())));
+            break;
+        }
 		auto rad = degrees_to_radians(i);
         auto rotated = make_shared<rotate_y>(m, 100 + i);
 
         auto translated = make_shared<translate>(rotated, vec3(
             std::sin(rad) * j,
-            j - min_distance, 
+            0, 
             std::cos(rad) * j
         ));
         world.add(translated);
@@ -313,7 +401,7 @@ void the_council() {
 
     auto glass = make_shared<dielectric>(1.5);
 	auto otherglass = make_shared<dielectric>(1.2);
-    world.add(make_shared<sphere>(
+    lights.add(make_shared<sphere>(
         point3(0, 2, 0),
         8,
         otherglass
@@ -328,46 +416,52 @@ void the_council() {
         7.5,
 		make_shared<lambertian>(color(0.5, 0.0, 0.0))
     );
-    world.add(make_shared<constant_medium>(ball, 0.2, color(0.8, 0.7, 0.8)));
+
+    //world.add(make_shared<constant_medium>(ball, 0.2, color(0.8, 0.7, 0.8)));
 
     auto atmo = make_shared<sphere>(
         point3(0, 2, 0),
         1000,
         make_shared<lambertian>(color(0.5, 0.0, 0.0))
     );
-    world.add(make_shared<constant_medium>(atmo, 0.002, color(0.1, 0.1, 0.1)));
+    //world.add(make_shared<constant_medium>(atmo, 0.002, color(0.1, 0.1, 0.1)));
 
 
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-	world.add(
-        mesh::fromFile("snowball.buvf", difflight)
+    world.add(
+        make_shared<rotate_y>(mesh::fromFile("snowball.buvf", difflight), 30)
     );
+
+    // skylight
+    auto sky = make_shared<diffuse_light>(color(0.5, 0.5, 0.5));
+    world.add(make_shared<quad>(vec3(100, 40, 100), vec3(-200, 0, 0), vec3(0, 0, -200), sky));
     
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 1080;
+    cam.image_width = 500;
     cam.samples_per_pixel = 40;
     cam.max_depth = 50;
-    cam.background = color(0, 0, 0);
+    cam.background = color(0.015, 0.015, 0.02);
 
-    cam.vfov = 30;
-    cam.lookfrom = point3(40, 40, 6);
+    cam.vfov = 40;
+    cam.lookfrom = point3(40, 12, 6);
     cam.lookat = point3(0, 1, 0);
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-    cam.chunk_size = 50;
+    cam.chunk_size = 32;
     cam.num_threads = 20;
 
+    world.add(make_shared<hittable_list>(lights));
     auto bvh_world = bvh_node(world);
-    cam.render(bvh_world);
+    cam.render(bvh_world, lights);
 }
 
 
 int main()
 {
-    switch (8) 
+    switch (7) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;

@@ -61,6 +61,30 @@ public:
 
     aabb bounding_box() const override { return bbox; }
 
+    double pdf_value(const point3& origin, const vec3& direction) const override {
+        auto sum = 0.0;
+
+        if (left)
+            sum += left->pdf_value(origin, direction);
+        if (right)
+            sum += right->pdf_value(origin, direction);
+        if (left && right)
+            sum /= 2.0;
+
+        return sum;
+    }
+
+    vec3 random(const point3& origin) const override {
+        if (left && right)
+            return random_int(0, 1) ? left->random(origin) : right->random(origin);
+        if (left)
+            return left->random(origin);
+        if (right)
+            return right->random(origin);
+        // neither, we should never have a child-less bvh node but here we are
+        return vec3(1, 0, 0);
+    }
+
 private:
     shared_ptr<hittable> left;
     shared_ptr<hittable> right;

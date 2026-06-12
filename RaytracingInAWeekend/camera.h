@@ -1,6 +1,8 @@
 #pragma once
 #include "hittable.h"
 #include "material.h"
+#include "pdf.h"
+
 #include <thread>
 #include <future>
 #include <chrono>
@@ -34,7 +36,7 @@ public:
     int num_threads = 16;
 	int chunk_size = 16;
 
-    int render_thread(const hittable& world, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
+    int render_thread(const hittable& world, const hittable& lights, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
     {
         std::string name = "cthread_" + std::to_string(id);
         auto logger = spdlog::get(name);
@@ -45,13 +47,13 @@ public:
         chunk section;
         while (chunkQueue.pop(section))
         {
-            render_chunk(world, section.width, section.height, outputBuffer);
+            render_chunk(world, lights, section.width, section.height, outputBuffer);
         }
         logger->info("Chunk queue is empty, exiting thread {}", id);
         return id;
     }
 
-    int render_chunk(const hittable& world, interval chunk_width, interval chunk_height, std::vector<color>& outputBuffer)
+    int render_chunk(const hittable& world, const hittable& lights, interval chunk_width, interval chunk_height, std::vector<color>& outputBuffer)
     {
         
         int width = int(chunk_width.size());
@@ -59,9 +61,19 @@ public:
         for (int j = int(chunk_height.min); j < int(chunk_height.max); j++) for (int i = int(chunk_width.min); i < int(chunk_width.max); i++)
         {
             color pixel_color(0, 0, 0);
-            for (int sample = 0; sample < samples_per_pixel; sample++) {
-                ray r = get_ray(i, j);
-                pixel_color += ray_color(r, max_depth, world);
+            for (int s_j = 0; s_j < sqrt_spp; s_j++) {
+                for (int s_i = 0; s_i < sqrt_spp; s_i++) {
+                    ray r = get_ray(i, j, s_i, s_j);
+                    auto returned_color = ray_color(r, max_depth, world, lights);
+                    if (returned_color.x() < 0 || returned_color.y() < 0 || returned_color.z() < 0)
+                    {
+                        logger->info("Trying to add a color that has a component less than zero!");
+                    }
+                    else
+                    {
+                        pixel_color += returned_color;
+                    }
+                }
             }
             int out_index = int(i + (j * image_width));
             if (out_index >= outputBuffer.size())
@@ -79,7 +91,7 @@ public:
     }
 
     template <typename HITTABLE>
-    void render(const HITTABLE& world) {
+    void render(const HITTABLE& world, const hittable& lights) {
         initialize();
 
         chunkBuffer.resize(image_width * image_height);
@@ -127,9 +139,9 @@ public:
             threads.push_back(
                 std::async(
                     std::launch::async,
-                    [this, &world, &chunkQueue, t]()
+                    [this, &world, &lights, &chunkQueue, t]()
                     {
-						return this->render_thread(world, chunkQueue, this->chunkBuffer, t);
+						return this->render_thread(world, lights, chunkQueue, this->chunkBuffer, t);
                         //return this->render_chunk(world, interval(chunk_min, chunk_max), interval(0, this->image_height), this->chunkBuffer);
                     }
                 ).share()
@@ -179,6 +191,10 @@ private:
     vec3   pixel_delta_u;  // Offset to pixel to the right
     vec3   pixel_delta_v;  // Offset to pixel below
     double pixel_samples_scale;  // Color scale factor for a sum of pixel samples
+
+    int    sqrt_spp;             // Square root of number of samples per pixel
+    double recip_sqrt_spp;       // 1 / sqrt_spp
+
     vec3   u, v, w;              // Camera frame basis vectors
     vec3   defocus_disk_u;       // Defocus disk horizontal radius
     vec3   defocus_disk_v;       // Defocus disk vertical radius
@@ -195,6 +211,10 @@ private:
 
         image_height = int(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
+
+        sqrt_spp = int(std::sqrt(samples_per_pixel));
+        pixel_samples_scale = 1.0 / (sqrt_spp * sqrt_spp);
+        recip_sqrt_spp = 1.0 / sqrt_spp;
 
         pixel_samples_scale = 1.0 / samples_per_pixel;
 
@@ -228,11 +248,12 @@ private:
         defocus_disk_v = v * defocus_radius;
     }
 
-    color ray_color(const ray& r, int depth, const hittable& world) const {
+    color ray_color(const ray& r, int depth, const hittable& world, const hittable& lights)
+        const {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
         {
-            //logger->info("Max ray depth reached, returning black");
+            //logger->info("Max ray depth reached, returning red");
             return color(0, 0, 0);
         }
 
@@ -242,23 +263,37 @@ private:
         if (!world.hit(r, interval(0.001, infinity), rec))
             return background;
 
-        ray scattered;
-        color attenuation;
-        color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
+        scatter_record srec;
+        color color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
 
-        if (!rec.mat->scatter(r, rec, attenuation, scattered))
+        if (!rec.mat->scatter(r, rec, srec))
             return color_from_emission;
 
-        color color_from_scatter = attenuation * ray_color(scattered, depth - 1, world);
+        if (srec.skip_pdf) {
+            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights);
+        }
 
+        auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
+        mixture_pdf p(light_ptr, srec.pdf_ptr);
+
+        ray scattered = ray(rec.p, p.generate(), r.time());
+        auto pdf_value = p.value(scattered.direction());
+
+        double scattering_pdf = rec.mat->scattering_pdf(r, rec, scattered);
+
+        color sample_color = ray_color(scattered, depth - 1, world, lights);
+        color color_from_scatter =
+            (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
+
+        
         return color_from_emission + color_from_scatter;
     }
 
-    ray get_ray(int i, int j) const {
-        // Construct a camera ray originating from the origin and directed at randomly sampled
-        // point around the pixel location i, j.
+    ray get_ray(int i, int j, int s_i, int s_j) const {
+        // Construct a camera ray originating from the defocus disk and directed at a randomly
+        // sampled point around the pixel location i, j for stratified sample square s_i, s_j.
 
-        auto offset = sample_square();
+        auto offset = sample_square_stratified(s_i, s_j);
         auto pixel_sample = pixel00_loc
             + ((i + offset.x()) * pixel_delta_u)
             + ((j + offset.y()) * pixel_delta_v);
@@ -276,6 +311,16 @@ private:
         // Returns a random point in the camera defocus disk.
         auto p = random_in_unit_disk();
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
+    }
+
+    vec3 sample_square_stratified(int s_i, int s_j) const {
+        // Returns the vector to a random point in the square sub-pixel specified by grid
+        // indices s_i and s_j, for an idealized unit square pixel [-.5,-.5] to [+.5,+.5].
+
+        auto px = ((s_i + random_double()) * recip_sqrt_spp) - 0.5;
+        auto py = ((s_j + random_double()) * recip_sqrt_spp) - 0.5;
+
+        return vec3(px, py, 0);
     }
 
     vec3 sample_square() const {

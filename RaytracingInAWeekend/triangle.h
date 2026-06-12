@@ -81,6 +81,22 @@ public:
         return true;
     }
 
+    double pdf_value(const point3& origin, const vec3& direction) const override {
+        hit_record rec;
+        if (!this->hit(ray(origin, direction), interval(0.001, infinity), rec))
+            return 0;
+
+        auto distance_squared = rec.t * rec.t * direction.length_squared();
+        auto cosine = std::fabs(dot(direction, rec.normal) / direction.length());
+
+        return distance_squared / (cosine * area);
+    }
+
+    vec3 random(const point3& origin) const override {
+        auto p = v0.position + (random_double() * v0v1) + (random_double() * v0v1);
+        return p - origin;
+    }
+
 private:
 	std::shared_ptr<spdlog::logger> logger;
     vertex v0, v1, v2;
