@@ -9,7 +9,7 @@
 #include "triangle.h"
 #include "mesh.h"
 #include "constant_medium.h"
-
+#include "splat.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -69,7 +69,7 @@ int bouncing_spheres()
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 540;
-    cam.samples_per_pixel = 100;
+    cam.samples_per_pixel = 1;
     cam.max_depth = 10;
 
     cam.vfov = 20;
@@ -80,6 +80,7 @@ int bouncing_spheres()
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
     cam.background = color(0.70, 0.80, 1.00);
+    cam.output_file = "output/output.ppm";
 
     auto empty_material = shared_ptr<material>();
     quad lights(point3(0, 2, 0), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
@@ -329,7 +330,7 @@ void simple_light() {
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 600;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 40;
     cam.max_depth = 50;
     cam.background = color(0, 0, 0);
 
@@ -347,6 +348,129 @@ void simple_light() {
 
 	auto bvh_world = bvh_node(world);
     cam.render(bvh_world, lights);
+}
+
+void gs_test(point3 cam_pos, std::string output_file_name)
+{
+    hittable_list world;
+    hittable_list lights;
+    // floor
+    world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+    
+    auto rawPly = loadPly("local/single_splat.ply");
+
+    spdlog::info("Pre-BVH");
+    auto bvhPly = make_shared<bvh_node>(rawPly);
+    spdlog::info("Post-BVH");
+
+    world.add(bvhPly);
+
+    auto snow = make_shared<lambertian>(color(0.3, 0.3, 0.3));
+    auto mirror = make_shared<metal>(color(1, 1, 1), 0.1);
+
+    //auto m = mesh::fromFile("snowball.buvf", snow);
+    //world.add(make_shared<translate>(m, vec3(-6, 0, 0)));
+
+    //world.add(make_shared<quad>(vec3(0, 0, 20), vec3(20, 0, 0), vec3(0, 20, 0), mirror));
+    auto difflight = make_shared<diffuse_light>(color(2, 2, 2));
+    auto rlight = make_shared<diffuse_light>(color(4, 2, 0));
+
+    // lights, aka things that recieve more samples than anything else.
+    //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 40, -45), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 40, 45), 20, difflight));
+    lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
+
+    camera cam;
+
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 10;
+    cam.max_depth = 5;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 40;
+    cam.lookfrom = cam_pos;
+    cam.lookat = point3(0, 1, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+    cam.chunk_size = 20;
+    cam.num_threads = 20;
+    cam.output_file = output_file_name;
+
+    // make the lights actual things
+    world.add(make_shared<hittable_list>(lights));
+
+    auto bvh_world = bvh_node(world);
+    cam.render(bvh_world, lights);
+}
+
+void gs_video()
+{
+    hittable_list world;
+    hittable_list lights;
+    // floor
+    //world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+
+    auto rawPly = loadPly("local/tomato_slice.ply");
+
+    spdlog::info("Pre-BVH");
+    auto bvhPly = make_shared<bvh_node>(rawPly);
+    spdlog::info("Post-BVH");
+
+    world.add(bvhPly);
+
+    auto snow = make_shared<lambertian>(color(1, 1, 1));
+    auto mirror = make_shared<metal>(color(1, 1, 1), 0.1);
+
+    //auto m = mesh::fromFile("snowball.buvf", snow);
+    //world.add(make_shared<translate>(m, vec3(-6, 0, 0)));
+
+    //world.add(make_shared<quad>(vec3(0, 0, 20), vec3(20, 0, 0), vec3(0, 20, 0), mirror));
+    auto difflight = make_shared<diffuse_light>(color(2, 2, 2));
+    auto rlight = make_shared<diffuse_light>(color(4, 2, 0));
+
+    // lights, aka things that recieve more samples than anything else.
+    //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 60, -60), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 60, 60), 20, difflight));
+    lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
+
+    // 0.011073589324951172, 0.007991224527359009, 0.051708608865737915
+    world.add(make_shared<sphere>(point3(0.011073589324951172, 0.007991224527359009, 0.051708608865737915), 0.1, snow));
+
+    // make the lights actual things
+    world.add(make_shared<hittable_list>(lights));
+    //world.add(make_shared<quad>(point3(300, -300, -300), vec3(-600, 0, 0), vec3(0, 600, 0), snow));
+    auto bvh_world = bvh_node(world);
+
+    camera cam;
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 10;
+    cam.max_depth = 10;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 50;
+    cam.lookat = point3(0, 1, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+    cam.chunk_size = 8;
+    cam.num_threads = 20;
+    double dist = 20;
+    for (double i = pi/4; i < (5 * pi) / 4; i += 10)
+    {
+        
+        
+        cam.lookfrom = point3(dist * std::sin(i), 1, dist * std::cos(i));
+        
+        cam.output_file = "output/frame" + std::to_string(i) + ".ppm";
+
+
+        cam.render(bvh_world, lights);
+    }
 }
 
 void the_council() {
@@ -461,7 +585,7 @@ void the_council() {
 
 int main()
 {
-    switch (7) 
+    switch (10) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;
@@ -471,5 +595,8 @@ int main()
 		case 6: meshes(); break;
         case 7: simple_light(); break;
 		case 8: the_council(); break;
+        case 9: gs_test(point3(10, 5, 0), "output.ppm"); break;
+        case 10: gs_video(); break;
+        default: break;
     }
 }

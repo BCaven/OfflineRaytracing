@@ -55,6 +55,129 @@ private:
     shared_ptr<texture> tex;
 };
 
+class variableColor : public material {
+public:
+    variableColor(const color& albedo) : c(albedo) {}
+
+    void colFromVal(double v) { c = color(v, v, v); }
+
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
+        srec.attenuation = c;
+        srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
+        srec.skip_pdf = false;
+        return true;
+    }
+
+    double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered)
+        const override {
+        auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
+        return cos_theta < 0 ? 0 : cos_theta / pi;
+    }
+
+private:
+    color c;
+};
+
+constexpr int SH_COUNT = 16;
+constexpr int SH_CHANNEL_COUNT = 3;
+constexpr int SH_FLOAT_COUNT = SH_COUNT * SH_CHANNEL_COUNT;
+constexpr int SH_REST_FLOAT_COUNT = SH_FLOAT_COUNT - SH_CHANNEL_COUNT;
+constexpr int SH_PACKED_VEC4_COUNT = SH_FLOAT_COUNT / 4;
+
+static_assert(SH_FLOAT_COUNT % 4 == 0,
+    "Spherical harmonic coefficients must pack into vec4 attributes");
+
+constexpr float SH_C0 = 0.28209479177387814f;
+constexpr float SH_C1 = 0.4886025119029199f;
+constexpr float SH_C2[] = {
+    1.0925484305920792f,
+    -1.0925484305920792f,
+    0.31539156525252005f,
+    -1.0925484305920792f,
+    0.5462742152960396f
+};
+constexpr float SH_C3[] = {
+    -0.5900435899266435f,
+    2.890611442640554f,
+    -0.4570457994644658f,
+    0.3731763325901154f,
+    -0.4570457994644658f,
+    1.445305721320277f,
+    -0.5900435899266435f
+};
+class shMaterial : public material {
+public:
+    shMaterial(std::array<float, SH_FLOAT_COUNT> sphericalHarmonics)
+    {
+        for (int i = 0; i < SH_COUNT; i++)
+        {
+            int shIndex = i * SH_CHANNEL_COUNT;
+            sh[i] = glm::vec3(sphericalHarmonics[shIndex], sphericalHarmonics[shIndex + 1], sphericalHarmonics[shIndex + 2]);
+        }
+    }
+
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override
+    {
+        srec.attenuation = colorFromSH(vec3::toVec3(r_in.direction()));
+        srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
+        srec.skip_pdf = false;
+        return true;
+    }
+
+    double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override
+    {
+        auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
+        return cos_theta < 0 ? 0 : cos_theta / pi;
+    }
+
+private:
+    std::array<glm::vec3, SH_COUNT> sh = {};
+
+    inline color colorFromSH(glm::vec3 dir) const
+    {
+        // Degree is 3, but might as well support the rest
+        // https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
+        int deg = 0;
+        glm::vec3 result(SH_C0 * sh[0]);
+        if (deg > 0)
+        {
+            float x = dir.x;
+            float y = dir.y;
+            float z = dir.z;
+            result = result - SH_C1 * y * sh[1] + SH_C1 * z * sh[2] - SH_C1 * x * sh[3];
+
+
+            if (deg > 1)
+            {
+                float xx = x * x, yy = y * y, zz = z * z;
+                float xy = x * y, yz = y * z, xz = x * z;
+                result = result +
+                    SH_C2[0] * xy * sh[4] +
+                    SH_C2[1] * yz * sh[5] +
+                    SH_C2[2] * (2.0f * zz - xx - yy) * sh[6] +
+                    SH_C2[3] * xz * sh[7] +
+                    SH_C2[4] * (xx - yy) * sh[8];
+
+                if (deg > 2)
+                {
+                    result = result +
+                        SH_C3[0] * y * (3.0f * xx - yy) * sh[9] +
+                        SH_C3[1] * xy * z * sh[10] +
+                        SH_C3[2] * y * (4.0f * zz - xx - yy) * sh[11] +
+                        SH_C3[3] * z * (2.0f * zz - 3.0f * xx - 3.0f * yy) * sh[12] +
+                        SH_C3[4] * x * (4.0f * zz - xx - yy) * sh[13] +
+                        SH_C3[5] * z * (xx - yy) * sh[14] +
+                        SH_C3[6] * x * (xx - 3.0f * yy) * sh[15];
+                }
+            }
+        }
+        result += 0.5f;
+        result = glm::max(result, 0.0f);
+        return color(result.x, result.y, result.z);
+    }
+
+};
+
 class metal : public material {
 public:
     metal(const color& albedo, double fuzz) : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}

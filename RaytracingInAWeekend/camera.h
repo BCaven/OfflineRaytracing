@@ -35,6 +35,7 @@ public:
 
     int num_threads = 16;
 	int chunk_size = 16;
+    std::string output_file;
 
     int render_thread(const hittable& world, const hittable& lights, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
     {
@@ -148,7 +149,7 @@ public:
             );
         }
         
-        std::ofstream outputImage("output.ppm");
+        std::ofstream outputImage(output_file);
 
         if (!outputImage.is_open())
         {
@@ -206,9 +207,12 @@ private:
     std::vector<std::shared_future<int>> threads;
 
     void initialize() {
-        // TODO: switch this to factory that reuses other camera loggers
-        logger = spdlog::stdout_color_mt("camera");
-
+        logger = spdlog::get("camera");
+        if (!logger)
+        {
+            logger = spdlog::stdout_color_mt("camera");
+        }
+        
         image_height = int(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
 
