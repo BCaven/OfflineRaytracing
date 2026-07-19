@@ -107,7 +107,7 @@ constexpr float SH_C3[] = {
 };
 class shMaterial : public material {
 public:
-    shMaterial(std::array<float, SH_FLOAT_COUNT> sphericalHarmonics)
+    shMaterial(std::array<float, SH_FLOAT_COUNT> sphericalHarmonics, int degree): deg(degree)
     {
         for (int i = 0; i < SH_COUNT; i++)
         {
@@ -132,12 +132,12 @@ public:
 
 private:
     std::array<glm::vec3, SH_COUNT> sh = {};
+    int deg = 0;
 
     inline color colorFromSH(glm::vec3 dir) const
     {
         // Degree is 3, but might as well support the rest
         // https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
-        int deg = 0;
         glm::vec3 result(SH_C0 * sh[0]);
         if (deg > 0)
         {

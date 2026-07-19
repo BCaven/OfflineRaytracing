@@ -37,6 +37,9 @@ public:
 	int chunk_size = 16;
     std::string output_file;
 
+    bool debug_depth = false;
+    double min_dist = 0.0;
+
     int render_thread(const hittable& world, const hittable& lights, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
     {
         std::string name = "cthread_" + std::to_string(id);
@@ -257,14 +260,13 @@ private:
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
         {
-            //logger->info("Max ray depth reached, returning red");
             return color(0, 0, 0);
         }
 
         hit_record rec;
 
         // If the ray hits nothing, return the background color.
-        if (!world.hit(r, interval(0.001, infinity), rec))
+        if (!world.hit(r, interval(min_dist, infinity), rec))
             return background;
 
         scatter_record srec;
@@ -290,7 +292,21 @@ private:
             (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 
         
-        return color_from_emission + color_from_scatter;
+        color ret_col(0, 0, 0);
+        if (debug_depth)
+        {
+            double t = rec.t;
+
+            if (t < 100)
+            {
+                ret_col = color(t / 100.0, t / 100.0, t / 100.0);
+            }
+        }
+        else
+        {
+            ret_col = color_from_emission + color_from_scatter;
+        }
+        return ret_col;
     }
 
     ray get_ray(int i, int j, int s_i, int s_j) const {

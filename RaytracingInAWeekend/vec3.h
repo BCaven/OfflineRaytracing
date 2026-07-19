@@ -8,7 +8,7 @@ class vec3
 public:
 	double e[3];
 
-    vec3(glm::vec3 v) : e(v.x, v.y, v.z) {}
+    vec3(glm::dvec3 v) : e(v.x, v.y, v.z) {}
 	vec3() : e{ 0, 0, 0 } {}
 	vec3(double e0, double e1, double e2) : e(e0, e1, e2) {}
 
@@ -54,9 +54,9 @@ public:
         return vec3(random_double(min, max), random_double(min, max), random_double(min, max));
     }
 
-    static glm::vec3 toVec3( vec3 v)
+    static glm::dvec3 toVec3( vec3 v)
     {
-        return glm::vec3(v.x(), v.y(), v.z());
+        return glm::dvec3(v.x(), v.y(), v.z());
     }
 
     bool near_zero() {

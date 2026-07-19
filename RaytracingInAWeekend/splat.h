@@ -146,55 +146,50 @@ public:
     // full splats get stored in a bvh, this is a single splat
     vec3 center;
     double alpha = 0.0;
-    glm::vec3 scale;
+    glm::dvec3 scale;
     glm::quat rotation;
-    glm::vec3 rvec;
+    glm::dvec3 rvec;
     std::array<float, SH_FLOAT_COUNT> sphericalHarmonics = {};
     aabb bbox;
     shared_ptr<material> mat;
     shared_ptr<material> outline_mat;
-    glm::mat3 invSigma;
-    glm::mat3 sigma;
+    glm::dmat3 invSigma;
+    glm::dmat3 sigma;
     double detSigma = 0.0;
     double rho_0 = 0.0;
     double aabb_scale = 0.5;
     double normConst = 0.0;
     double splat_scale = 1.0;
     double radius = 0.1;
+    bool valid = true;
     interval t_mean_range = interval::universe;
 
 
-    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array) :
+    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array, int degree) :
         center(c.x, c.y, c.z), scale(s), rotation(rot), alpha(a), sphericalHarmonics(sh_array)
     {
-        alpha = 0.5;
-        //spdlog::info("rot quat: wxyz< {}, {}, {}, {} >", rotation.w, rotation.x, rotation.y, rotation.z);
-        //scale = glm::normalize(scale);
-        //spdlog::info("scale vec: < {}, {} {} >", scale.x, scale.y, scale.z);
-
-        //spdlog::info("position: < {}, {}, {} >", center.x(), center.y(), center.z());
-        //glm::mat3 R = glm::mat3_cast(rotation);
-        double r = rotation.x;
-        double x = rotation.y;
-        double y = rotation.z;
-        double z = rotation.w;
-        glm::mat3 R = glm::mat3(
+        double r = rotation.w;
+        double x = rotation.x;
+        double y = rotation.y;
+        double z = rotation.z;
+        glm::dmat3 R = glm::dmat3(
             1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
             2.f * (x * y + r * z), 1.f - 2.f * (x * x + z * z), 2.f * (y * z - r * x),
             2.f * (x * z - r * y), 2.f * (y * z + r * x), 1.f - 2.f * (x * x + y * y)
         );
         double scale_mod = 1;
-        glm::mat3 S(1.0f);
+        glm::dmat3 S(1.0f);
         S[0][0] = scale.x * scale_mod;
         S[1][1] = scale.y * scale_mod;
         S[2][2] = scale.z * scale_mod;
 
-        glm::mat3 M = S * R;
+        glm::dmat3 M = S * R;
         sigma = glm::transpose(M) * M;
         invSigma = glm::inverse(sigma);       
         if (glm::any(glm::isnan(invSigma[0])) || glm::any(glm::isnan(invSigma[1])) || glm::any(glm::isnan(invSigma[2])))
         {
             spdlog::info("NANS IN INVSIGMA");
+            valid = false;
         }
         detSigma = glm::determinant(sigma);
 
@@ -202,39 +197,41 @@ public:
         if (detSigma <= 0.0)
         {
             spdlog::error("Somehow the determinant of sigma when creating the splat was negative");
+            valid = false;
         }
-        /*
-        spdlog::info("rotation matrix:\n< {}, {}, {} >\n< {}, {}, {} >\n< {}, {}, {} >",
-            R[0][0], R[0][1], R[0][2],
-            R[1][0], R[1][1], R[1][2],
-            R[2][0], R[2][1], R[2][2]);
-        spdlog::info("scale matrix:\n< {}, {}, {} >\n< {}, {}, {} >\n< {}, {}, {} >",
-            S[0][0], S[0][1], S[0][2],
-            S[1][0], S[1][1], S[1][2],
-            S[2][0], S[2][1], S[2][2]);
-        spdlog::info("Sigma:\n< {}, {}, {} >\n< {}, {}, {} >\n< {}, {}, {} >",
-            sigma[0][0], sigma[0][1], sigma[0][2],
-            sigma[1][0], sigma[1][1], sigma[1][2],
-            sigma[2][0], sigma[2][1], sigma[2][2]);
-            */
         rvec = sigma * scale; //R * scale;
-        //rvec = R * scale;
-        //spdlog::info("Rotation vec: < {}, {}, {} >", rvec.x, rvec.y, rvec.z);
-
+        
 
         auto mean_scale = std::pow(std::abs(scale.x * scale.y * scale.z), 1.0f / 3.0f);
         rho_0 = -std::log(1.0f - alpha) / (sqrt2pi * mean_scale);
 
-        normConst = splat_scale / ( std::pow(2 * pi, 3.0 / 2.0) * std::sqrt(detSigma));
+        normConst = (splat_scale / ( std::pow(2 * pi, 3.0 / 2.0) * std::sqrt(detSigma))) * alpha;
 
-        vec3 norm_rvec(rvec.x * aabb_scale, rvec.y * aabb_scale, rvec.z * aabb_scale);
-        bbox = aabb(center - norm_rvec, center + norm_rvec);
+        
+        double eps = 0.01;
+        double k = std::sqrt(-2.0 * std::log(eps)); // radius of ellipsoid in "S" units
 
+        // ellipsoid semi-axes in world space = k * s_x, k * s_y, k * s_z along R's columns
+        glm::dvec3 axis0 = k * scale.x * glm::dvec3(R[0]); // R's basis vectors (columns)
+        glm::dvec3 axis1 = k * scale.y * glm::dvec3(R[1]);
+        glm::dvec3 axis2 = k * scale.z * glm::dvec3(R[2]);
+
+        // AABB half-extents = sum of |component| along each world axis
+        glm::dvec3 halfExtent(
+            std::abs(axis0.x) + std::abs(axis1.x) + std::abs(axis2.x),
+            std::abs(axis0.y) + std::abs(axis1.y) + std::abs(axis2.y),
+            std::abs(axis0.z) + std::abs(axis1.z) + std::abs(axis2.z)
+        );
+
+        bbox = aabb(
+            center - vec3(halfExtent),
+            center + vec3(halfExtent)
+        );
         outline_mat = make_shared<diffuse_light>(color(1, 1, 1));
-        mat = make_shared<shMaterial>( sphericalHarmonics );
+        mat = make_shared<shMaterial>( sphericalHarmonics, degree );
     }
 
-    double probOfHit(const ray& r, interval ray_t, interval t) const
+    double probOfHit(const ray& r, interval ray_t, interval t, double A, double B, double C) const
     {
         // probability of a ray being scattered by a gaussian
         // ray = x + tw
@@ -261,17 +258,8 @@ public:
         prob_scatter = const * sqrt(pi / 2A) * ( erf_t1 - erf_t0 )
 
         */
-        double t_0 = ray_t.clamp(t.min);
-        double t_1 = ray_t.clamp(t.max);
-        //spdlog::info("t0: {} t1: {}", t_0, t_1);
-        glm::vec3 x = vec3::toVec3(r.origin());
-        glm::vec3 u = vec3::toVec3(center);
-        glm::vec3 w = glm::normalize(vec3::toVec3(r.direction()));
-
-        glm::vec3 X = x - u;
-        double A = glm::dot(w, invSigma * w);
-        double B = glm::dot(w, invSigma * X) + glm::dot(X, invSigma * w);
-        double C = glm::dot(X, invSigma * X);
+        double t_0 = t.min;
+        double t_1 = t.max;
         double constant = std::exp(((B * B) / (8.0 * A)) - (C / 2.0));
         double sqrtA2 = std::sqrt(A / 2);
         double B2sqrt2A = B / (2.0 * std::sqrt(2.0 * A));
@@ -280,14 +268,18 @@ public:
         return normConst * constant * std::sqrt(pi / (2 * A)) * (erf_t1 - erf_t0);
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(const ray& r, interval ray_t, hit_record& rec) const override 
+    {
+        if (!valid)
+        {
+            // skip malformed splats
+            return false;
+        }
+        glm::dvec3 x = vec3::toVec3(r.origin());
+        glm::dvec3 u = vec3::toVec3(center);
+        glm::dvec3 w = vec3::toVec3(r.direction());
 
-        // want to calculate t_0 and t_1 from an ellipsoid surrounding the splat instead of the bvh
-        glm::vec3 x = vec3::toVec3(r.origin());
-        glm::vec3 u = vec3::toVec3(center);
-        glm::vec3 w = glm::normalize(vec3::toVec3(r.direction()));
-
-        glm::vec3 X = x - u;
+        glm::dvec3 X = x - u;
         double A = glm::dot(w, invSigma * w);
         double B = glm::dot(w, invSigma * X) + glm::dot(X, invSigma * w);
         double C = glm::dot(X, invSigma * X);
@@ -313,42 +305,45 @@ public:
 
         interval t(t_0, t_1);
 
-        double probHit = probOfHit(r, ray_t, t); // / normConst;
-        //spdlog::info("prob hit: {}, with normConst: {}", probHit, probHit * normConst);
+        double probHit = probOfHit(r, ray_t, t, A, B, C);
+        // TODO: the return value is NOT a real probability and can be > 1
+
+
+        if (probHit == 0.0 || probHit != probHit)
+        {
+            // sometimes malformed splats create nans (probably they got scaled to zero or something)
+            return false;
+        }
 
         double rand = random_double();
-        if ( probHit < rand)// probHit > rand)
+        if ( probHit < rand)
         {
             return false;
         }
-        //spdlog::info("didnt miss!");
+        
         /*
         calculate time as somewhere between t0 and t1
         might as well use rand since its already calculated
         
         */
-        if (probHit != probHit)
-        {
-            spdlog::info("prob hit was nan");
-            return false;
-        }
 
         double t_norm = rand / probHit;
 
         double normRay_t = t_0 + (t_norm * (t_1 - t_0));
-        glm::vec3 dir = vec3::toVec3(r.direction());
-        //spdlog::info("l: {} glm l: {}", r.direction().length(), glm::length(dir));
-        double real_t = normRay_t / r.direction().length();
-        //spdlog::info("t of normalized ray: {}, t of ray after accounting for unnormalized dir: {}", normRay_t, real_t);
-
-        if (!t.contains(real_t))
+        double real_t = normRay_t;
+        if (real_t != real_t)
         {
-            //spdlog::info("oops, t_norm: {}, normRay_T: {}, real_t: {}\nray bounds: {} - {}", t_norm, normRay_t, real_t, t.min, t.max);
+            spdlog::info("returned time was NaN");
+            return false;
         }
         rec.t = real_t;
-        //spdlog::info("t: {}", rec.t);
+        
         rec.p = r.at(rec.t);
-
+        double test = dot(rec.p, rec.p);
+        if (test != test)
+        {
+            spdlog::info("rec.p was nan when colliding with splat");
+        }
         vec3 outward_normal = (rec.p - center);
 
         outward_normal /= outward_normal.length();
@@ -620,11 +615,12 @@ inline hittable_list loadPly(const std::string& path) {
                     plyDetail::readAsFloat(row, *shRest[plyRestIndex]);
             }
         }
-        float alpha = plyDetail::readAsFloat(row, opacity);
+        float raw_alpha = plyDetail::readAsFloat(row, opacity);
+        float alpha = 1.0 / (1.0 + std::exp(-raw_alpha));
         glm::vec3 scale(
-            plyDetail::readAsFloat(row, scale0),
-            plyDetail::readAsFloat(row, scale1),
-            plyDetail::readAsFloat(row, scale2)
+            std::exp(plyDetail::readAsFloat(row, scale0)),
+            std::exp(plyDetail::readAsFloat(row, scale1)),
+            std::exp(plyDetail::readAsFloat(row, scale2))
         );
 
         glm::quat rotation(
@@ -635,7 +631,7 @@ inline hittable_list loadPly(const std::string& path) {
         );
         
         splat gs(
-            center, scale, rotation, alpha, sphericalHarmonics
+            center, scale, rotation, alpha, sphericalHarmonics, SH_REST_FLOAT_COUNT / restCountPerChannel
         );
         result.add(make_shared<splat>(gs));
     }

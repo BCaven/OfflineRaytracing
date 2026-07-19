@@ -27,13 +27,41 @@ public:
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+        vec3 d = r.direction();
+        //spdlog::info("ray direction: {}, {}, {}", d.x(), d.y(), d.z());
         point3 current_center = center.at(r.time());
+        if (r.time() != r.time())
+        {
+            spdlog::info("r.time NaN! {}", r.time());
+        }
+        double test = dot(current_center, current_center);
+        if (test != test)
+        {
+            spdlog::info("current center NaN {}", test);
+
+        }
+        test = dot(r.origin(), r.origin());
+        if (test != test)
+        {
+            spdlog::info("ray origin NaN {}", test);
+
+        }
         vec3 oc = current_center - r.origin();
+        test = dot(oc, oc);
+        if (test != test)
+        {
+            spdlog::info("oc NaN {}", test);
+
+        }
         auto a = r.direction().length_squared();
+        
         auto h = dot(r.direction(), oc);
+        
         auto c = oc.length_squared() - radius * radius;
+        
 
         auto discriminant = h * h - a * c;
+        
         if (discriminant < 0)
             return false;
 

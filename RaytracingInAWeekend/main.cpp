@@ -92,29 +92,33 @@ int bouncing_spheres()
 
 void checkered_spheres() {
     hittable_list world;
+    hittable_list lights;
 
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1), color(.9, .9, .9));
 
     world.add(make_shared<sphere>(point3(0, -10, 0), 10, make_shared<lambertian>(checker)));
     world.add(make_shared<sphere>(point3(0, 10, 0), 10, make_shared<lambertian>(checker)));
+    auto light = make_shared<sphere>(point3(0, 0, 10), 10, make_shared<diffuse_light>(color(1, 1, 1)));
+
+    world.add(light);
+    lights.add(light);
 
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
+    cam.image_width = 540;
+    cam.samples_per_pixel = 1;
+    cam.max_depth = 10;
 
     cam.vfov = 20;
     cam.lookfrom = point3(13, 2, 3);
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    cam.defocus_angle = 0.6;
+    cam.focus_dist = 10.0;
     cam.background = color(0.70, 0.80, 1.00);
-
-    auto empty_material = shared_ptr<material>();
-    quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+    cam.output_file = "output/output.ppm";
 
     cam.render(world, lights);
 }
@@ -411,9 +415,9 @@ void gs_video()
     hittable_list world;
     hittable_list lights;
     // floor
-    //world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+    world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
 
-    auto rawPly = loadPly("local/tomato_slice.ply");
+    auto rawPly = loadPly("local/tiny_snowball_splat.ply");
 
     spdlog::info("Pre-BVH");
     auto bvhPly = make_shared<bvh_node>(rawPly);
@@ -438,10 +442,10 @@ void gs_video()
     lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
 
     // 0.011073589324951172, 0.007991224527359009, 0.051708608865737915
-    world.add(make_shared<sphere>(point3(0.011073589324951172, 0.007991224527359009, 0.051708608865737915), 0.1, snow));
+    //world.add(make_shared<sphere>(point3(-120, 0, 0), 100, snow));
 
     // make the lights actual things
-    world.add(make_shared<hittable_list>(lights));
+    world.add(make_shared<bvh_node>(lights));
     //world.add(make_shared<quad>(point3(300, -300, -300), vec3(-600, 0, 0), vec3(0, 600, 0), snow));
     auto bvh_world = bvh_node(world);
 
@@ -457,10 +461,13 @@ void gs_video()
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-    cam.chunk_size = 8;
+    cam.chunk_size = 10;
     cam.num_threads = 20;
-    double dist = 20;
-    for (double i = pi/4; i < (5 * pi) / 4; i += 10)
+    //cam.debug_depth = true;
+
+    double dist = 5;
+    
+    for (double i = pi/4; i < (5 * pi) / 4; i += 10.1)
     {
         
         
