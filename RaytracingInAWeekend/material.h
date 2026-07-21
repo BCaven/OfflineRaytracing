@@ -118,7 +118,7 @@ public:
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override
     {
-        srec.attenuation = colorFromSH(vec3::toVec3(r_in.direction()));
+        srec.attenuation = colorFromSH(vec3::toVec3(rec.normal)); // r_in.direction()
         srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
         srec.skip_pdf = false;
         return true;

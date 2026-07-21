@@ -18,6 +18,7 @@ mono_crash.*
 
 # exclude local content
 local/
+output/
 
 enc_temp_folder/
 
@@ -370,3 +371,4 @@ FodyWeavers.xsd
 /RaytracingInAWeekend/earthmap.jpg
 /RaytracingInAWeekend/output.ppm
 /RaytracingInAWeekend.slnx
+/RaytracingInAWeekend/output/frame0.785398.ppm

@@ -38,6 +38,7 @@ public:
     std::string output_file;
 
     bool debug_depth = false;
+    bool debug_skip_pdf = false;
     double min_dist = 0.0;
 
     int render_thread(const hittable& world, const hittable& lights, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
@@ -282,9 +283,18 @@ private:
         auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
 
-        ray scattered = ray(rec.p, p.generate(), r.time());
-        auto pdf_value = p.value(scattered.direction());
-
+        ray scattered;
+        double pdf_value = 0;
+        if (debug_skip_pdf)
+        {
+            scattered = ray(rec.p, srec.pdf_ptr->generate(), r.time());
+            pdf_value = srec.pdf_ptr->value(scattered.direction());
+        }
+        else
+        {
+            scattered = ray(rec.p, p.generate(), r.time());
+            pdf_value = p.value(scattered.direction());
+        }
         double scattering_pdf = rec.mat->scattering_pdf(r, rec, scattered);
 
         color sample_color = ray_color(scattered, depth - 1, world, lights);

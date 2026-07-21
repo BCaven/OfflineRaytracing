@@ -355,6 +355,21 @@ public:
         return true;
     }
 
+    bool hit2(const ray& r, interval ray_t, hit_record& rec) const
+    {
+        /*
+        Find: mean and 1D stdev
+        generate 
+
+        */
+        glm::dvec3 origin = vec3::toVec3(r.origin());
+        glm::dvec3 dir = vec3::toVec3(r.direction());
+        glm::dvec3 c = vec3::toVec3(center);
+
+
+
+    }
+
     aabb bounding_box() const override { return bbox; }
 
     double pdf_value(const point3& origin, const vec3& direction) const override {

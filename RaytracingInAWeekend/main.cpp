@@ -257,13 +257,14 @@ void meshes()
     cam.max_depth = 10;
 
     cam.vfov = 20;
-    cam.lookfrom = point3(13, 2, 3);
+    cam.lookfrom = point3(13, 9, 3);
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
     cam.background = color(0.70, 0.80, 1.00);
+    cam.output_file = "output/output.ppm";
 
     auto empty_material = shared_ptr<material>();
     quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
@@ -346,6 +347,7 @@ void simple_light() {
     cam.defocus_angle = 0;
 	cam.chunk_size = 16;
     cam.num_threads = 20;
+    cam.output_file = "output/output.ppm";
 
     // make the lights actual things
     world.add(make_shared<hittable_list>(lights));
@@ -417,19 +419,30 @@ void gs_video()
     // floor
     world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
 
-    auto rawPly = loadPly("local/tiny_snowball_splat.ply");
+    auto rawPly = loadPly("local/tomatoes_40x_180.ply");
 
     spdlog::info("Pre-BVH");
-    auto bvhPly = make_shared<bvh_node>(rawPly);
+    //auto bvhPly = make_shared<bvh_node>(rawPly);
     spdlog::info("Post-BVH");
 
-    world.add(bvhPly);
+    //world.add(bvhPly);
 
     auto snow = make_shared<lambertian>(color(1, 1, 1));
-    auto mirror = make_shared<metal>(color(1, 1, 1), 0.1);
+    auto mirror = make_shared<metal>(color(1, 1, 1), 1);
 
-    //auto m = mesh::fromFile("snowball.buvf", snow);
-    //world.add(make_shared<translate>(m, vec3(-6, 0, 0)));
+    auto tri = make_shared<triangle>(
+        vertex(point3(0, 2, 0), point3(1, 0, 0), point3()), 
+        vertex(point3(0, 0, 0), point3(1, 0, 0), point3()),
+        vertex(point3(0, 0, -2), point3(1, 0, 0), point3()),
+        mirror);
+
+    world.add(tri);
+
+    auto m = mesh::fromFile("cube.bcf", snow);
+    world.add(make_shared<rotate_y>(
+            make_shared<translate>(m, vec3(0, 0, 3)),
+            2
+    ));
 
     //world.add(make_shared<quad>(vec3(0, 0, 20), vec3(20, 0, 0), vec3(0, 20, 0), mirror));
     auto difflight = make_shared<diffuse_light>(color(2, 2, 2));
@@ -437,12 +450,11 @@ void gs_video()
 
     // lights, aka things that recieve more samples than anything else.
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-    lights.add(make_shared<sphere>(point3(0, 60, -60), 20, difflight));
-    lights.add(make_shared<sphere>(point3(0, 60, 60), 20, difflight));
-    lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
+    //lights.add(make_shared<sphere>(point3(0, 60, -60), 20, difflight));
+    lights.add(make_shared<sphere>(point3(70, 60, 1), 20, rlight));
 
-    // 0.011073589324951172, 0.007991224527359009, 0.051708608865737915
-    //world.add(make_shared<sphere>(point3(-120, 0, 0), 100, snow));
+    //lights.add(make_shared<sphere>(point3(0, 60, 60), 20, difflight));
+    //lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
 
     // make the lights actual things
     world.add(make_shared<bvh_node>(lights));
@@ -452,7 +464,7 @@ void gs_video()
     camera cam;
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 400;
-    cam.samples_per_pixel = 10;
+    cam.samples_per_pixel = 200;
     cam.max_depth = 10;
     cam.background = color(0, 0, 0);
 
@@ -461,19 +473,19 @@ void gs_video()
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-    cam.chunk_size = 10;
+    cam.chunk_size = 50;
     cam.num_threads = 20;
     //cam.debug_depth = true;
-
-    double dist = 5;
+    cam.debug_skip_pdf = true;
+    double dist = 15;
     
-    for (double i = pi/4; i < (5 * pi) / 4; i += 10.1)
+    for (double i = pi/4; i < (5 * pi) / 4; i += 10.2)
     {
         
         
-        cam.lookfrom = point3(dist * std::sin(i), 1, dist * std::cos(i));
+        cam.lookfrom = point3(dist * std::sin(i), 6, dist * std::cos(i));
         
-        cam.output_file = "output/frame" + std::to_string(i) + ".ppm";
+        cam.output_file = "output/triangle_depth_" + std::to_string(i) + ".ppm";
 
 
         cam.render(bvh_world, lights);

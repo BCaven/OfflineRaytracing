@@ -18,11 +18,22 @@ public:
 		v0v2 = v2.position - v0.position;
 		v1v2 = v2.position - v1.position;
 		v2v0 = v0.position - v2.position;
-		normal = cross(v0v1, v0v2);
-        denom = normal.length_squared();
-		normalized_normal = unit_vector(normal);
-		area = normal.length() / 2;
-		d = -1 * dot(normal, v0.position);
+        normal = v1.normal / v1.normal.length();
+
+        if ((v1.normal != v2.normal) || (v1.normal != v0.normal))
+        {
+            logger->warn("triangle recieved different normals and that is not supported yet!");
+            normal = cross(v0v1, v0v2);
+            normal /= normal.length();
+
+        }
+        normalized_normal = normal;
+		//normal = cross(v0v1, v0v2);
+        //normalized_normal = unit_vector(normal);
+        denom = normalized_normal.length_squared();
+
+        area = normal.length() / 2;
+		d = -1 * dot(normalized_normal, v0.position);
         set_bounding_box();
     }
 
@@ -39,11 +50,11 @@ public:
     {
 		// following the scratchapixel barycentric coordinates method for ray-triangle intersection
 
-		double NdotRayDir = dot(normal, r.direction());
+		double NdotRayDir = dot(normalized_normal, r.direction());
 
         if (fabs(NdotRayDir) < minimus) return false;
 
-		double t = -(dot(normal, r.origin()) + d) / NdotRayDir;
+		double t = -(dot(normalized_normal, r.origin()) + d) / NdotRayDir;
 
         if (!ray_t.contains(t)) return false;
 
@@ -53,15 +64,15 @@ public:
 		vec3 v1p = P - v1.position;
         C = cross(v1v2, v1p);
         double u, v, w;
-        if ((u = dot(normal, C)) < 0) return false;
+        if ((u = dot(normalized_normal, C)) < 0) return false;
 
 		vec3 v2p = P - v2.position;
 		C = cross(v2v0, v2p);
-        if ((v = dot(normal, C)) < 0) return false;
+        if ((v = dot(normalized_normal, C)) < 0) return false;
 
 		vec3 v0p = P - v0.position;
 		C = cross(v0v1, v0p);
-		if (dot(normal, C) < 0) return false;
+		if (dot(normalized_normal, C) < 0) return false;
 
         u /= denom;
 		v /= denom;
@@ -83,7 +94,7 @@ public:
 
     double pdf_value(const point3& origin, const vec3& direction) const override {
         hit_record rec;
-        if (!this->hit(ray(origin, direction), interval(0.001, infinity), rec))
+        if (!this->hit(ray(origin, direction), interval(minimus, infinity), rec))
             return 0;
 
         auto distance_squared = rec.t * rec.t * direction.length_squared();

@@ -40,6 +40,15 @@ vec3 operator/(const vec3& u, const vec3& v)
 
 }
 
+bool operator!=(const vec3& u, const vec3& v)
+{
+    bool x = u.x() != v.x();
+    bool y = u.y() != v.y();
+    bool z = u.z() != v.z();
+    return x || y || z;
+}
+
+
 double dot(const vec3& u, const vec3& v) {
     return u.e[0] * v.e[0]
         + u.e[1] * v.e[1]
