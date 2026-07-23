@@ -191,8 +191,8 @@ void quads() {
     hittable_list world;
 
     // Materials
-    auto blender_texture = make_shared<image_texture>("default_texture.jpg");
-    auto blender_surface = make_shared<lambertian>(blender_texture);
+    //auto blender_texture = make_shared<image_texture>("default_texture.jpg");
+    //auto blender_surface = make_shared<lambertian>(blender_texture);
 
 
     auto left_red = make_shared<lambertian>(color(1.0, 0.2, 0.2));
@@ -222,8 +222,8 @@ void quads() {
 
     cam.aspect_ratio = 1.0;
     cam.image_width = 540;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
+    cam.samples_per_pixel = 10;
+    cam.max_depth = 5;
 
     cam.vfov = 80;
     cam.lookfrom = point3(0, 0, 9);
@@ -232,9 +232,11 @@ void quads() {
 
     cam.defocus_angle = 0;
     cam.background = color(0.70, 0.80, 1.00);
+    cam.output_file = "output/output.ppm";
 
-    auto empty_material = shared_ptr<material>();
+    auto empty_material = make_shared<diffuse_light>(color(1, 1, 1));
     quad lights(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), empty_material);
+    world.add(make_shared<quad>(lights));
 
     cam.render(world, lights);
 }
@@ -417,18 +419,18 @@ void gs_video()
     hittable_list world;
     hittable_list lights;
     // floor
-    world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
+    world.add(make_shared<sphere>(point3(100, -1001, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
 
     auto rawPly = loadPly("local/tomatoes_40x_180.ply");
 
     spdlog::info("Pre-BVH");
-    //auto bvhPly = make_shared<bvh_node>(rawPly);
+    auto bvhPly = make_shared<bvh_node>(rawPly);
     spdlog::info("Post-BVH");
 
-    //world.add(bvhPly);
+    world.add(bvhPly);
 
     auto snow = make_shared<lambertian>(color(1, 1, 1));
-    auto mirror = make_shared<metal>(color(1, 1, 1), 1);
+    auto mirror = make_shared<metal>(color(1, 1, 1), 0.5);
 
     auto tri = make_shared<triangle>(
         vertex(point3(0, 2, 0), point3(1, 0, 0), point3()), 
@@ -438,19 +440,20 @@ void gs_video()
 
     world.add(tri);
 
-    auto m = mesh::fromFile("cube.bcf", snow);
-    world.add(make_shared<rotate_y>(
-            make_shared<translate>(m, vec3(0, 0, 3)),
-            2
+    //auto m = mesh::fromFile("snowball.buvf", snow);
+    //world.add(make_shared<rotate_y>( make_shared<translate>(m, vec3(0, 0, 8)), 2 ));
+
+    world.add(make_shared<sphere>(
+        point3(0, 0, -14), 5, mirror
     ));
 
     //world.add(make_shared<quad>(vec3(0, 0, 20), vec3(20, 0, 0), vec3(0, 20, 0), mirror));
-    auto difflight = make_shared<diffuse_light>(color(2, 2, 2));
-    auto rlight = make_shared<diffuse_light>(color(4, 2, 0));
+    auto difflight = make_shared<diffuse_light>(color(1, 1, 1));
+    auto rlight = make_shared<diffuse_light>(color(1, 0.5, 0));
 
     // lights, aka things that recieve more samples than anything else.
     //world.add(make_shared<sphere>(point3(50, 20, 0), 20, difflight));
-    //lights.add(make_shared<sphere>(point3(0, 60, -60), 20, difflight));
+    lights.add(make_shared<sphere>(point3(0, 60, -60), 20, difflight));
     lights.add(make_shared<sphere>(point3(70, 60, 1), 20, rlight));
 
     //lights.add(make_shared<sphere>(point3(0, 60, 60), 20, difflight));
@@ -463,9 +466,9 @@ void gs_video()
 
     camera cam;
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 200;
-    cam.max_depth = 10;
+    cam.image_width = 200;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 20;
     cam.background = color(0, 0, 0);
 
     cam.vfov = 50;
@@ -473,10 +476,10 @@ void gs_video()
     cam.vup = vec3(0, 1, 0);
 
     cam.defocus_angle = 0;
-    cam.chunk_size = 50;
+    cam.chunk_size = 10;
     cam.num_threads = 20;
     //cam.debug_depth = true;
-    cam.debug_skip_pdf = true;
+    //cam.debug_skip_pdf = true;
     double dist = 15;
     
     for (double i = pi/4; i < (5 * pi) / 4; i += 10.2)
@@ -485,7 +488,7 @@ void gs_video()
         
         cam.lookfrom = point3(dist * std::sin(i), 6, dist * std::cos(i));
         
-        cam.output_file = "output/triangle_depth_" + std::to_string(i) + ".ppm";
+        cam.output_file = "output/splat_demo_" + std::to_string(i) + ".ppm";
 
 
         cam.render(bvh_world, lights);
@@ -601,10 +604,65 @@ void the_council() {
     cam.render(bvh_world, lights);
 }
 
+void cornell_box() {
+    hittable_list world;
+    hittable_list lights;
+
+    auto red = make_shared<lambertian>(color(.65, .05, .05));
+    auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto green = make_shared<lambertian>(color(.12, .45, .15));
+    auto light_mat = make_shared<diffuse_light>(color(15, 15, 15));
+
+    // Cornell box sides
+    world.add(make_shared<quad>(point3(555, 0, 0), vec3(0, 0, 555), vec3(0, 555, 0), green));
+    world.add(make_shared<quad>(point3(0, 0, 555), vec3(0, 0, -555), vec3(0, 555, 0), red));
+    world.add(make_shared<quad>(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555), white));
+    world.add(make_shared<quad>(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 0, -555), white));
+    world.add(make_shared<quad>(point3(555, 0, 555), vec3(-555, 0, 0), vec3(0, 555, 0), white));
+
+
+    auto rawPly = loadPly("local/tomatoes_40x_180.ply");
+
+    spdlog::info("Pre-BVH");
+    //auto bvhPly = make_shared<bvh_node>(rawPly);
+    spdlog::info("Post-BVH");
+
+    //world.add(bvhPly);
+
+    // Light
+    auto light = make_shared<sphere>(point3(213, 554, 227), 10, light_mat);
+    auto light_box = make_shared<quad>(point3(213, 554, 227), vec3(130, 0, 0), vec3(0, 0, 105), make_shared<material>());
+    lights.add(light);
+    world.add(light);
+
+    camera cam;
+
+    cam.aspect_ratio = 1.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 30;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 40;
+    cam.lookfrom = point3(278, 278, -800);
+    cam.lookat = point3(278, 278, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+    cam.output_file = "output/output.ppm";
+
+    cam.chunk_size = 15;
+    cam.num_threads = 12;
+
+    auto bvh_world = bvh_node(world);
+    auto bvh_lights = bvh_node(lights);
+
+    cam.render(bvh_world, bvh_lights);
+}
 
 int main()
 {
-    switch (10) 
+    switch (5) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;
@@ -616,6 +674,7 @@ int main()
 		case 8: the_council(); break;
         case 9: gs_test(point3(10, 5, 0), "output.ppm"); break;
         case 10: gs_video(); break;
+        case 11: cornell_box(); break;
         default: break;
     }
 }

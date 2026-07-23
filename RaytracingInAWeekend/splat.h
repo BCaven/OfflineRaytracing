@@ -362,10 +362,38 @@ public:
         generate 
 
         */
-        glm::dvec3 origin = vec3::toVec3(r.origin());
-        glm::dvec3 dir = vec3::toVec3(r.direction());
-        glm::dvec3 c = vec3::toVec3(center);
 
+        glm::dvec3 x = vec3::toVec3(r.origin());
+        glm::dvec3 u = vec3::toVec3(center);
+        glm::dvec3 w = vec3::toVec3(r.direction());
+
+        glm::dvec3 X = x - u;
+        double A = glm::dot(w, invSigma * w);
+        double B = glm::dot(w, invSigma * X) + glm::dot(X, invSigma * w);
+        double C = glm::dot(X, invSigma * X);
+
+        double eps = 0.01;
+        double k2 = -2.0 * std::log(eps);
+        double a = A;
+        double b = B;
+        double c = C - k2;
+        double discriminant = (b * b) - (4 * a * c);
+        double t_0 = 0.0, t_1 = 0.0;
+
+        if (discriminant >= 0.0 && a > 0.0) {
+            double sqrtDisc = std::sqrt(discriminant);
+            t_0 = ray_t.clamp((-b - sqrtDisc) / (2.0 * a));
+            t_1 = ray_t.clamp((-b + sqrtDisc) / (2.0 * a));
+        }
+        else
+        {
+            // missed the ellipsoid
+            return false;
+        }
+
+        // get mean time
+        // get standard deviation
+        //double mean = 
 
 
     }
