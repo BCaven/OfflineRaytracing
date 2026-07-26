@@ -55,29 +55,6 @@ private:
     shared_ptr<texture> tex;
 };
 
-class variableColor : public material {
-public:
-    variableColor(const color& albedo) : c(albedo) {}
-
-    void colFromVal(double v) { c = color(v, v, v); }
-
-    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
-        srec.attenuation = c;
-        srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
-        srec.skip_pdf = false;
-        return true;
-    }
-
-    double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered)
-        const override {
-        auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
-        return cos_theta < 0 ? 0 : cos_theta / pi;
-    }
-
-private:
-    color c;
-};
-
 constexpr int SH_COUNT = 16;
 constexpr int SH_CHANNEL_COUNT = 3;
 constexpr int SH_FLOAT_COUNT = SH_COUNT * SH_CHANNEL_COUNT;
@@ -126,7 +103,7 @@ public:
 
     double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override
     {
-        auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
+        auto cos_theta = dot(rec.normal, scattered.direction());
         return cos_theta < 0 ? 0 : cos_theta / pi;
     }
 

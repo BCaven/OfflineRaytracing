@@ -70,11 +70,11 @@ public:
 
     double pdf_value(const point3& origin, const vec3& direction) const override {
         hit_record rec;
-        if (!this->hit(ray(origin, direction), interval(0.001, infinity), rec))
+        if (!this->hit(ray(origin, direction), interval(min_dist, infinity), rec))
             return 0;
 
-        auto distance_squared = rec.t * rec.t * direction.length_squared();
-        auto cosine = std::fabs(dot(direction, rec.normal) / direction.length());
+        auto distance_squared = rec.t * rec.t;
+        auto cosine = std::fabs(dot(direction, rec.normal));
 
         return distance_squared / (cosine * area);
     }

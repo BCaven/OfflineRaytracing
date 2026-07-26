@@ -94,7 +94,7 @@ public:
 
     double pdf_value(const point3& origin, const vec3& direction) const override {
         hit_record rec;
-        if (!this->hit(ray(origin, direction), interval(minimus, infinity), rec))
+        if (!this->hit(ray(origin, direction), interval(min_dist, infinity), rec))
             return 0;
 
         auto distance_squared = rec.t * rec.t * direction.length_squared();

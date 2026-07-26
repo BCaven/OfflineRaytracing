@@ -21,6 +21,7 @@ const double pi = 3.1415926535897932385;
 const double sqrt2pi = 2.50662827463;
 const double sqrt2 = 1.41421356;
 const double minimus = 0.00000001;
+const double min_dist = 0.01;
 
 // Utility Functions
 

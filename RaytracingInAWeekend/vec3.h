@@ -59,12 +59,22 @@ public:
         return glm::dvec3(v.x(), v.y(), v.z());
     }
 
-    bool near_zero() {
+    bool near_zero() const {
         // Return true if the vector is close to zero in all dimensions.
         auto s = 1e-8;
         return (std::fabs(e[0]) < s) && (std::fabs(e[1]) < s) && (std::fabs(e[2]) < s);
     }
+
+    vec3& clamp(double min, double max)
+    {
+        e[0] = std::clamp(e[0], min, max);
+        e[1] = std::clamp(e[1], min, max);
+        e[2] = std::clamp(e[2], min, max);
+        return *this;
+    }
 };
+
+
 
 // point3 is just an alias for vec3, but useful for geometric clarity in the code.
 using point3 = vec3;
@@ -93,6 +103,9 @@ vec3 operator*(const vec3& v, double t);
 vec3 operator/(const vec3& v, double t);
 vec3 operator/(const vec3& u, const vec3& v);
 bool operator!=(const vec3& u, const vec3& v);
+bool operator<(const vec3& u, double t);
+bool operator>(const vec3& u, double t);
+
 double dot(const vec3& u, const vec3& v);
 vec3 cross(const vec3& u, const vec3& v);
 vec3 unit_vector(const vec3& v);

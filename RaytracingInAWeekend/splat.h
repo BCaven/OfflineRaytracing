@@ -22,6 +22,12 @@ inline thread_local std::random_device rd{};
 // Mersenne twister PRNG, initialized with seed from previous random device instance
 inline thread_local std::mt19937 gen{ rd() };
 
+
+struct plyArgs
+{
+    bool bHit2 = false;
+};
+
 // Standard normal CDF: Phi(x) = 0.5 * (1 + erf(x / sqrt(2)))
 static double normalCDF(double x) {
     return 0.5 * std::erfc(-x / std::sqrt(2.0));
@@ -162,12 +168,18 @@ public:
     double splat_scale = 1.0;
     double radius = 0.1;
     bool valid = true;
+    bool bHit2 = false;
     interval t_mean_range = interval::universe;
 
 
-    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array, int degree) :
+    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array, int degree, plyArgs args) :
         center(c.x, c.y, c.z), scale(s), rotation(rot), alpha(a), sphericalHarmonics(sh_array)
     {
+        // args
+        bHit2 = args.bHit2;
+
+
+        // splat setup
         double r = rotation.w;
         double x = rotation.x;
         double y = rotation.y;
@@ -270,6 +282,10 @@ public:
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override 
     {
+        if (bHit2)
+        {
+            return hit2(r, ray_t, rec);
+        }
         if (!valid)
         {
             // skip malformed splats
@@ -368,9 +384,15 @@ public:
         glm::dvec3 w = vec3::toVec3(r.direction());
 
         glm::dvec3 X = x - u;
-        double A = glm::dot(w, invSigma * w);
-        double B = glm::dot(w, invSigma * X) + glm::dot(X, invSigma * w);
-        double C = glm::dot(X, invSigma * X);
+        glm::dvec3 Iw = invSigma * w;
+        glm::dvec3 Ix = invSigma * X;
+
+        double A = glm::dot(w, Iw);
+        double B = glm::dot(w, Ix) + glm::dot(X, Iw);
+        double C = glm::dot(X, Ix);
+        double constant = std::exp(((B * B) / (8.0 * A)) - (C / 2.0));
+        double peakProb = alpha * normConst * constant * std::sqrt(2.0 * pi / A);
+        if (random_double() > peakProb) return false;
 
         double eps = 0.01;
         double k2 = -2.0 * std::log(eps);
@@ -393,8 +415,37 @@ public:
 
         // get mean time
         // get standard deviation
-        //double mean = 
+        double mean = -B / (2 * A);
+        double std_dev = 1 / std::sqrt(A);
 
+        std::normal_distribution<double> rand_gen{ mean, std_dev };
+        double sample_t = rand_gen(gen);
+
+        interval t(t_0, t_1);
+        if (!t.contains(sample_t) || !ray_t.contains(sample_t))
+        {
+            return false;
+        }
+
+        // as a volume, the splats have the tendency of becoming black holes that absorb all rays
+        // instead, testing the splat as a surface collision (t_0)
+        rec.t = sample_t;
+
+        rec.p = r.at(rec.t);
+        double test = dot(rec.p, rec.p);
+        if (test != test)
+        {
+            spdlog::info("rec.p was nan when colliding with splat");
+        }
+        vec3 outward_normal = (rec.p - center);
+
+        outward_normal /= outward_normal.length();
+
+        rec.set_face_normal(r, outward_normal);
+        get_sphere_uv(outward_normal, rec.u, rec.v);
+
+        rec.mat = mat;
+        return true;
 
     }
 
@@ -511,7 +562,9 @@ namespace plyDetail {
 
 } // namespace plyDetail
 
-inline hittable_list loadPly(const std::string& path) {
+
+
+inline hittable_list loadPly(const std::string& path, plyArgs args ) {
     auto logger = spdlog::get("ply-loader");
     if (!logger)
     {
@@ -674,7 +727,7 @@ inline hittable_list loadPly(const std::string& path) {
         );
         
         splat gs(
-            center, scale, rotation, alpha, sphericalHarmonics, SH_REST_FLOAT_COUNT / restCountPerChannel
+            center, scale, rotation, alpha, sphericalHarmonics, SH_REST_FLOAT_COUNT / restCountPerChannel, args
         );
         result.add(make_shared<splat>(gs));
     }

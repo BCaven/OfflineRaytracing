@@ -92,7 +92,7 @@ public:
         // This method only works for stationary spheres.
 
         hit_record rec;
-        if (!this->hit(ray(origin, direction), interval(0.001, infinity), rec))
+        if (!this->hit(ray(origin, direction), interval(min_dist, infinity), rec))
             return 0;
 
         auto dist_squared = (center.at(0) - origin).length_squared();

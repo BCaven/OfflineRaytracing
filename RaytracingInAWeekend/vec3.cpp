@@ -47,7 +47,16 @@ bool operator!=(const vec3& u, const vec3& v)
     bool z = u.z() != v.z();
     return x || y || z;
 }
-
+/*
+bool operator<(const vec3& u, double t)
+{
+    return u.x() < t || u.y() < t || u.z() < t;
+}
+bool operator>(const vec3& u, double t)
+{
+    return u.x() > t || u.y() > t || u.z() > t;
+}
+*/
 
 double dot(const vec3& u, const vec3& v) {
     return u.e[0] * v.e[0]

@@ -39,7 +39,6 @@ public:
 
     bool debug_depth = false;
     bool debug_skip_pdf = false;
-    double min_dist = 0.0;
 
     int render_thread(const hittable& world, const hittable& lights, boost::lockfree::queue<chunk>& chunkQueue, std::vector<color>& outputBuffer, int id)
     {
@@ -316,7 +315,7 @@ private:
         {
             ret_col = color_from_emission + color_from_scatter;
         }
-        return ret_col;
+        return ret_col.clamp(0, 1);
     }
 
     ray get_ray(int i, int j, int s_i, int s_j) const {
