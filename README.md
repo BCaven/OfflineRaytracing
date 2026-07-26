@@ -1,4 +1,6 @@
-![tomato_in_a_cornell_box](tomato_in_a_cornell_box.png)
+![tomato in a cornell box](tomato_in_cornell_box.png)
+
+[tomato splat](https://superspl.at/scene/0101ad57) in cornell box.
 
 # Offline Raytracing
 
@@ -11,3 +13,23 @@ This was then expanded to include Gaussian Splats rendered as stochastically sam
 ![the council](thecouncil.png)
 ![more bears](restofmylife.png)
 ![even more bears](waitinginline.png)
+
+# Getting started
+
+This project uses: \
+[Boost](https://www.boost.org/) \
+[Spdlog](https://github.com/gabime/spdlog) \
+[STB](https://github.com/nothings/stb) \
+[GLM](https://github.com/g-truc/glm) 
+
+# Inspirations
+
+[Unified Gaussian Primitives for Scene Representation and Rendering](https://dl.acm.org/doi/pdf/10.1145/3829352)
+
+Support for a non-c++ API is not planned and at the moment users must build the project from scratch. This project has only been tested using Visual Studio and C++20 and is not guarenteed to work on other platforms and configurations. \
+Aspects of the project might also not work and can be broken on any new release. \
+At the moment, this project is *not* optimized and there is not a schedule for further improvements. Expect long render times, bugs, and unsolved issues.
+
+# Contributing
+
+If you would like to contribute to this project please make a pull request.
