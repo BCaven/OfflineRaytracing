@@ -20,6 +20,11 @@ mono_crash.*
 local/
 output/
 
+# exclude mesh and splat files
+*.bcf
+*.buvf
+*.ply
+
 enc_temp_folder/
 
 # Build results
