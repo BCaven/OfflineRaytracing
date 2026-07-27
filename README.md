@@ -24,7 +24,7 @@ This project uses: \
 
 # Inspirations
 
-[Unified Gaussian Primitives for Scene Representation and Rendering](https://dl.acm.org/doi/pdf/10.1145/3829352)
+[Unified Gaussian Primitives for Scene Representation and Rendering](https://dl.acm.org/doi/pdf/10.1145/3829352) \
 [3DGS In A Weekend](https://bfeldman.me/3dgs-weekend/)
 
 Support for a non-c++ API is not planned and at the moment users must build the project from scratch. This project has only been tested using Visual Studio and C++20 and is not guarenteed to work on other platforms and configurations. \
