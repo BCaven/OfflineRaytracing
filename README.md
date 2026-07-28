@@ -1,4 +1,4 @@
-![tomato in a cornell box](tomato_in_cornell_box.png)
+![rotating light](centered_light_300.gif)
 
 [tomato splat](https://superspl.at/scene/0101ad57) in cornell box.
 
@@ -10,6 +10,7 @@ This was then expanded to include Gaussian Splats rendered as stochastically sam
 
 # Gallery
 
+![tomato in a cornell box](tomato_in_cornell_box.png)
 ![the council](thecouncil.png)
 ![more bears](restofmylife.png)
 ![even more bears](waitinginline.png)
