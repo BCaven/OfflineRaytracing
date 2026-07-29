@@ -65,12 +65,12 @@ public:
         return (std::fabs(e[0]) < s) && (std::fabs(e[1]) < s) && (std::fabs(e[2]) < s);
     }
 
-    vec3& clamp(double min, double max)
+    vec3 clamp(double min, double max)
     {
-        e[0] = std::clamp(e[0], min, max);
-        e[1] = std::clamp(e[1], min, max);
-        e[2] = std::clamp(e[2], min, max);
-        return *this;
+        auto e0 = std::clamp(e[0], min, max);
+        auto e1 = std::clamp(e[1], min, max);
+        auto e2 = std::clamp(e[2], min, max);
+        return vec3(e0, e1, e2);
     }
 };
 

@@ -365,12 +365,14 @@ void gs_test(point3 cam_pos, std::string output_file_name)
 {
     hittable_list world;
     hittable_list lights;
+    camera cam;
+
     // floor
     world.add(make_shared<sphere>(point3(100, -1002, 0), 1000, make_shared<lambertian>(color(0.5, 0.5, 0.5))));
     
     plyArgs args{};
 
-    auto rawPly = loadPly("local/single_splat.ply", args);
+    auto rawPly = loadPly("local/single_splat.ply", args, cam);
 
     spdlog::info("Pre-BVH");
     auto bvhPly = make_shared<bvh_node>(rawPly);
@@ -394,7 +396,6 @@ void gs_test(point3 cam_pos, std::string output_file_name)
     lights.add(make_shared<sphere>(point3(0, 40, 45), 20, difflight));
     lights.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105), difflight));
 
-    camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 400;
@@ -421,6 +422,8 @@ void gs_test(point3 cam_pos, std::string output_file_name)
 
 void gs_video()
 {
+    camera cam;
+
     hittable_list world;
     hittable_list lights;
     // floor
@@ -431,8 +434,8 @@ void gs_video()
 
     std::string splatFile = "local/testing_9.ply";
 
-    auto rawPly1 = loadPly(splatFile, splat1);
-    auto rawPly2 = loadPly(splatFile, splat2);
+    auto rawPly1 = loadPly(splatFile, splat1, cam);
+    auto rawPly2 = loadPly(splatFile, splat2, cam);
 
 
     spdlog::info("Pre-BVH");
@@ -464,7 +467,6 @@ void gs_video()
     //world.add(make_shared<quad>(point3(300, -300, -300), vec3(-600, 0, 0), vec3(0, 600, 0), snow));
     auto bvh_world = bvh_node(world);
 
-    camera cam;
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width = 200;
     cam.samples_per_pixel = 100;
@@ -607,6 +609,23 @@ void the_council() {
 void cornell_box() {
     hittable_list world;
     hittable_list lights;
+    camera cam;
+    cam.aspect_ratio = 1.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 50;
+    cam.max_depth = 5;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 40;
+    cam.lookfrom = point3(28, 28, -70);
+    cam.lookat = point3(28, 28, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+    cam.output_file = "output/output.ppm";
+
+    cam.chunk_size = 5;
+    cam.num_threads = 18;
 
     auto red = make_shared<lambertian>(color(.65, .05, .05));
     auto white = make_shared<lambertian>(color(.73, .73, .73));
@@ -622,7 +641,7 @@ void cornell_box() {
 
     plyArgs args{.bHit2 = true};
 
-    auto rawPly = loadPly("local/tomatoes_200x_180.ply", args);
+    auto rawPly = loadPly("local/tomatoes_200x_180.ply", args, cam);
 
     spdlog::info("Pre-BVH");
     auto bvhPly = make_shared<bvh_node>(rawPly);
@@ -641,25 +660,7 @@ void cornell_box() {
     auto light_box = make_shared<quad>(point3(21, 54.9, 23), vec3(13, 0, 0), vec3(0, 0, 11), make_shared<material>());
     lights.add(light_box);
     world.add(light);
-
-    camera cam;
-
-    cam.aspect_ratio = 1.0;
-    cam.image_width = 100;
-    cam.samples_per_pixel = 20;
-    cam.max_depth = 5;
-    cam.background = color(0, 0, 0);
-
-    cam.vfov = 40;
-    cam.lookfrom = point3(28, 28, -70);
-    cam.lookat = point3(28, 28, 0);
-    cam.vup = vec3(0, 1, 0);
-
-    cam.defocus_angle = 0;
-    cam.output_file = "output/output.ppm";
-
-    cam.chunk_size = 5;
-    cam.num_threads = 18;
+  
 
     auto bvh_world = bvh_node(world);
     auto bvh_lights = bvh_node(lights);
@@ -669,6 +670,24 @@ void cornell_box() {
 
 void cornell_box_video()
 {
+    camera cam;
+
+    cam.aspect_ratio = 1.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 50;
+    cam.max_depth = 5;
+    cam.background = color(0, 0, 0);
+
+    cam.vfov = 40;
+    cam.lookfrom = point3(28, 28, -70);
+    cam.lookat = point3(28, 28, 0);
+    cam.vup = vec3(0, 1, 0);
+
+    cam.defocus_angle = 0;
+
+    cam.chunk_size = 5;
+    cam.num_threads = 18;
+
     auto red = make_shared<lambertian>(color(.65, .05, .05));
     auto white = make_shared<lambertian>(color(.73, .73, .73));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
@@ -677,7 +696,7 @@ void cornell_box_video()
     
     plyArgs args{ .bHit2 = true };
 
-    auto rawPly = loadPly("local/tomatoes_200x_180.ply", args);
+    auto rawPly = loadPly("local/tomatoes_200x_180.ply", args, cam);
 
     spdlog::info("Pre-BVH");
     auto bvhPly = make_shared<bvh_node>(rawPly);
@@ -692,27 +711,11 @@ void cornell_box_video()
     //lights.add(light_box);
     //world.add(light);
 
-    camera cam;
-
-    cam.aspect_ratio = 1.0;
-    cam.image_width = 100;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 5;
-    cam.background = color(0, 0, 0);
-
-    cam.vfov = 40;
-    cam.lookfrom = point3(28, 28, -70);
-    cam.lookat = point3(28, 28, 0);
-    cam.vup = vec3(0, 1, 0);
-
-    cam.defocus_angle = 0;
-
-    cam.chunk_size = 5;
-    cam.num_threads = 18;
+    
 
     double radius = 20;
 
-    for (double angle = 0.0; angle < 2 * pi; angle += 0.4)
+    for (double angle = (3 * pi) / 4; angle < 2 * pi; angle += 10)
     {
 
         hittable_list world;
@@ -727,13 +730,13 @@ void cornell_box_video()
 
         world.add(make_shared<translate>(bvhPly, vec3(25, 0, 25)));
 
-        auto sphere_light = make_shared<sphere>(point3(radius * std::sin(angle), 30, radius * std::cos(angle)), 2, light_mat);
+        auto sphere_light = make_shared<sphere>(point3(radius * std::sin(angle) + 24, 30, radius * std::cos(angle) + 24), 2, light_mat);
         lights.add(sphere_light);
         world.add(sphere_light);
 
         auto bvh_world = bvh_node(world);
         auto bvh_lights = bvh_node(lights);
-        cam.output_file = "output/rotating_light_" + std::to_string(angle) +".ppm";
+        cam.output_file = "output/centered_light_" + std::to_string(angle) +".ppm";
         cam.render(bvh_world, bvh_lights);
 
     }
@@ -753,6 +756,8 @@ void benchmark_scene()
     // scene constants
     hittable_list world;
     hittable_list lights;
+    camera cam;
+
 
     auto red = make_shared<lambertian>(color(.65, .05, .05));
     auto white = make_shared<lambertian>(color(.73, .73, .73));
@@ -768,7 +773,7 @@ void benchmark_scene()
 
     plyArgs args{ .bHit2 = true };
 
-    auto rawPly = loadPly("local/tomatoes_100x_180.ply", args);
+    auto rawPly = loadPly("local/tomatoes_100x_180.ply", args, cam);
 
     spdlog::info("Pre-BVH");
     auto bvhPly = make_shared<bvh_node>(rawPly);
@@ -787,7 +792,6 @@ void benchmark_scene()
     auto bvh_world = bvh_node(world);
     auto bvh_lights = bvh_node(lights);
 
-    camera cam;
 
     cam.background = color(0, 0, 0);
 
@@ -831,7 +835,7 @@ void benchmark_scene()
 
 int main()
 {
-    switch (13) 
+    switch (11) 
     {
         case 1: bouncing_spheres();  break;
         case 2: checkered_spheres(); break;

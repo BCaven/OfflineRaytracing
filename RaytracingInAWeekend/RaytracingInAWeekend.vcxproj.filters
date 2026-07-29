@@ -152,5 +152,8 @@
     <ClInclude Include="splat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="base_material.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

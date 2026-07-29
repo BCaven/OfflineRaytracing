@@ -1,37 +1,8 @@
 #pragma once
 
-#include "hittable.h"
-#include "pdf.h"
-#include "texture.h"
+#include "base_material.h"
+#include "camera.h"
 
-
-class scatter_record {
-public:
-    color attenuation;
-    shared_ptr<pdf> pdf_ptr;
-    bool skip_pdf;
-    ray skip_pdf_ray;
-};
-
-class material {
-public:
-    virtual ~material() = default;
-
-    virtual bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const {
-        return false;
-    }
-
-    virtual color emitted(
-        const ray& r_in, const hit_record& rec, double u, double v, const point3& p
-    ) const {
-        return color(0.0, 0.0, 0.0);
-    }
-
-    virtual double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered)
-        const {
-        return 0;
-    }
-};
 
 class lambertian : public material {
 public:
@@ -84,7 +55,7 @@ constexpr float SH_C3[] = {
 };
 class shMaterial : public material {
 public:
-    shMaterial(std::array<float, SH_FLOAT_COUNT> sphericalHarmonics, int degree): deg(degree)
+    shMaterial(std::array<float, SH_FLOAT_COUNT> sphericalHarmonics, int degree, camera& c): deg(degree), cam(c)
     {
         for (int i = 0; i < SH_COUNT; i++)
         {
@@ -95,7 +66,14 @@ public:
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override
     {
-        srec.attenuation = colorFromSH(vec3::toVec3(rec.normal)); // r_in.direction()
+        // TODO: figure out reflections/transmission from spherical harmonics
+        // it would be cool to train a model where the thing its training against is a renderer like this one
+        // and allow it to also control splats emission and whatnot
+        // use the camera's lookat vector instead of the ray itself
+        // cam.lookat - cam.lookfrom = vec starting at lookfrom and going to lookat
+        glm::dvec3 cam_lookat = glm::normalize(vec3::toVec3(cam.lookat - cam.lookfrom));
+        
+        srec.attenuation = colorFromSH(cam_lookat); // r_in.direction() // rec.normal
         srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
         srec.skip_pdf = false;
         return true;
@@ -110,6 +88,7 @@ public:
 private:
     std::array<glm::vec3, SH_COUNT> sh = {};
     int deg = 0;
+    camera& cam;
 
     inline color colorFromSH(glm::vec3 dir) const
     {

@@ -1,6 +1,6 @@
 #pragma once
 #include "hittable.h"
-#include "material.h"
+#include "base_material.h"
 #include "pdf.h"
 
 #include <thread>

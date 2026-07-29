@@ -172,7 +172,7 @@ public:
     interval t_mean_range = interval::universe;
 
 
-    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array, int degree, plyArgs args) :
+    splat(glm::vec3 c, glm::vec3 s, glm::quat rot, double a, std::array<float, SH_FLOAT_COUNT> sh_array, int degree, plyArgs args, camera& cam) :
         center(c.x, c.y, c.z), scale(s), rotation(rot), alpha(a), sphericalHarmonics(sh_array)
     {
         // args
@@ -240,7 +240,7 @@ public:
             center + vec3(halfExtent)
         );
         outline_mat = make_shared<diffuse_light>(color(1, 1, 1));
-        mat = make_shared<shMaterial>( sphericalHarmonics, degree );
+        mat = make_shared<shMaterial>( sphericalHarmonics, degree, cam);
     }
 
     double probOfHit(const ray& r, interval ray_t, interval t, double A, double B, double C) const
@@ -360,7 +360,7 @@ public:
         {
             spdlog::info("rec.p was nan when colliding with splat");
         }
-        vec3 outward_normal = (rec.p - center);
+        vec3 outward_normal = invSigma * vec3::toVec3(rec.p - center);
 
         outward_normal /= outward_normal.length();
                 
@@ -437,9 +437,10 @@ public:
         {
             spdlog::info("rec.p was nan when colliding with splat");
         }
-        vec3 outward_normal = (rec.p - center);
 
-        outward_normal /= outward_normal.length();
+        // TODO: actual normal instead of sphere normal
+
+        vec3 outward_normal = glm::normalize(invSigma * vec3::toVec3(rec.p - center));
 
         rec.set_face_normal(r, outward_normal);
         get_sphere_uv(outward_normal, rec.u, rec.v);
@@ -564,7 +565,7 @@ namespace plyDetail {
 
 
 
-inline hittable_list loadPly(const std::string& path, plyArgs args ) {
+inline hittable_list loadPly(const std::string& path, plyArgs args, camera& cam ) {
     auto logger = spdlog::get("ply-loader");
     if (!logger)
     {
@@ -727,7 +728,7 @@ inline hittable_list loadPly(const std::string& path, plyArgs args ) {
         );
         
         splat gs(
-            center, scale, rotation, alpha, sphericalHarmonics, SH_REST_FLOAT_COUNT / restCountPerChannel, args
+            center, scale, rotation, alpha, sphericalHarmonics, SH_REST_FLOAT_COUNT / restCountPerChannel, args, cam
         );
         result.add(make_shared<splat>(gs));
     }
