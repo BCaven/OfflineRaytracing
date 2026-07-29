@@ -10,7 +10,7 @@ This was then expanded to include Gaussian Splats rendered as stochastically sam
 
 # Gallery
 
-![tomato in a cornell box](tomato_in_cornell_box.png)
+![tomato in a cornell box](tomato_in_cornell_box_new_normals.png)
 ![the council](thecouncil.png)
 ![more bears](restofmylife.png)
 ![even more bears](waitinginline.png)
